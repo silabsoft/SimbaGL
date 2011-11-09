@@ -1,0 +1,10 @@
+EXPORTS
+    GetFunctionCount=GetFunctionCount
+    GetFunctionInfo=GetFunctionInfo
+	setDebug=setDebug
+	isDebug=isDebug
+	setOverlay=setOverlay
+	getViewport=getViewport
+	getGLPosition=getGLPosition
+	GetModelPositionByChecksum=GetModelPositionByChecksum
+	SetUsingResizeableClient=SetUsingResizeableClient
