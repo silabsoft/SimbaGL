@@ -18,7 +18,7 @@ bool draw_overlay = false;
 unsigned int draw_stride = 12;
 unsigned int count = 0;
 bool resizeableClient = false;
-struct NPC
+struct Model
 {
 	GLfloat x;				//x,y,z coords
 	GLfloat y;
@@ -31,7 +31,7 @@ struct NPC
 	unsigned int triangles;
 };
 
-vector<NPC> NPCs;
+vector<Model> models;
 
 GLuint lastBuffer = 0;
 
@@ -99,12 +99,12 @@ void ExecuteCommands()
 	{
 		if(pCommands[0] == 1)	//if command = FindModelByID
 		{
-			for (int i = 0; i < NPCs.size(); i++)
+			for (int i = 0; i < models.size(); i++)
 			{
-				if (NPCs[i].id == pCommands[3])
+				if (models[i].id == pCommands[3])
 				{
-				pCommands[3] = NPCs[i].x_s;	//xcoord
-				pCommands[4] = NPCs[i].y_s;	//ycoord
+				pCommands[3] = models[i].x_s;	//xcoord
+				pCommands[4] = models[i].y_s;	//ycoord
 				pCommands[1] = 2;	//set command status to response
 				}
 			}
@@ -206,31 +206,31 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 	last_stride = stride;
 	drawing_model = true;
 
-	if(stride == 12 && pointer != 0)		//NPC model
+	if(stride == 12 && pointer != 0)		//Model model
 	{
 
-		NPC newNPC;
+		Model newModel;
 		GLfloat* temp;
 
 		temp = (GLfloat*)pointer;
-		newNPC.x = *temp;
+		newModel.x = *temp;
 		temp = (GLfloat*)((DWORD)pointer+4);
-		newNPC.y = *temp;
+		newModel.y = *temp;
 		temp = (GLfloat*)((DWORD)pointer+8);
-		newNPC.z = *temp;
+		newModel.z = *temp;
 
-		newNPC.stride = stride;
+		newModel.stride = stride;
 
-		NPCs.push_back(newNPC);
+		models.push_back(newModel);
 	}
 	else
 	{
-		NPC newNPC;
-		newNPC.x = 0;
-		newNPC.y = 0;
-		newNPC.z = 0;
-		newNPC.stride = stride;
-		NPCs.push_back(newNPC);
+		Model newModel;
+		newModel.x = 0;
+		newModel.y = 0;
+		newModel.z = 0;
+		newModel.stride = stride;
+		models.push_back(newModel);
 	}
 
 	(*orig_glVertexPointer) (size, type, stride, pointer);
@@ -239,8 +239,8 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoid *indices)
 {
 	if(drawing_model){
-		NPCs.back().id = bufferCRC[lastBuffer];
-		NPCs.back().triangles = count/3;
+		models.back().id = bufferCRC[lastBuffer];
+		models.back().triangles = count/3;
 		if(last_stride == draw_stride && draw_overlay)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		else
@@ -282,10 +282,10 @@ void sys_glPopMatrix (void)
 			Viewport[3] = 333;
 		}
 
-		if(gluProject(NPCs.back().x, NPCs.back().y, NPCs.back().z, ModelView, ProjView, Viewport, &View2D[0], &View2D[1], &View2D[2]) == GL_TRUE)
+		if(gluProject(models.back().x, models.back().y, models.back().z, ModelView, ProjView, Viewport, &View2D[0], &View2D[1], &View2D[2]) == GL_TRUE)
 		{
-			NPCs.back().x_s = (unsigned int)View2D[0];
-			NPCs.back().y_s = (unsigned int)Viewport[3]-(unsigned int)View2D[1];
+			models.back().x_s = (unsigned int)View2D[0];
+			models.back().y_s = (unsigned int)Viewport[3]-(unsigned int)View2D[1];
 		}
 	}
 
@@ -299,23 +299,32 @@ void sys_glOrtho (GLdouble left,  GLdouble right,  GLdouble bottom,  GLdouble to
 
 	(*orig_glOrtho) (left, right, bottom, top, zNear, zFar);
 }
+int dataDisplay = 0;
+bool drawAll;
 void sys_glEnable (GLenum cap)
 {
-	NPC drawNPC;
+	Model drawModel;
 	if(cap == GL_TEXTURE_RECTANGLE_ARB){
 		ExecuteCommands();											//check if command needs to be run every frame
-		while (!NPCs.empty())
+		while (!models.empty())
 		{
-			drawNPC = NPCs.back();
-			NPCs.pop_back();	
+			drawModel = models.back();
+			models.pop_back();	
 			orig_glPushMatrix();
 			orig_glLoadIdentity();	
 			glEnableClientState( GL_VERTEX_ARRAY );		
 			orig_glDisable(GL_TEXTURE_RECTANGLE_ARB);
 			glDisable(GL_SCISSOR_TEST);
-			if(draw_overlay && draw_stride == drawNPC.stride){
-			orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-			glPrint(drawNPC.x_s,drawNPC.y_s,"%d - triangles: %d",drawNPC.id,drawNPC.triangles);
+			if(draw_overlay && draw_stride == drawModel.stride || draw_overlay && drawAll){
+				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+				switch(dataDisplay){
+					case 0:
+						glPrint(drawModel.x_s,drawModel.y_s,"C: %d",drawModel.id);
+					break;
+					case 1:
+						glPrint(drawModel.x_s,drawModel.y_s,"T: %d",drawModel.triangles);
+					break;
+				}
 			}
 			glEnable(GL_SCISSOR_TEST);
 			orig_glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -340,8 +349,13 @@ void sys_glEnable (GLenum cap)
 	if(GetAsyncKeyState(VK_F6)&1) // used in higher detail modes
 		draw_stride = 40;
 	if(GetAsyncKeyState(VK_F7)&1) // used in higher detail modes
-		draw_stride = 28;	
-	
+		draw_stride = 28;
+	if(GetAsyncKeyState(VK_F8)&1) // used in higher detail modes
+		drawAll = !drawAll; //overlay for all models regardless of stride.
+	if(GetAsyncKeyState(VK_PRIOR)&1){
+		dataDisplay++;
+		dataDisplay = dataDisplay % 2; //display options for the debugging. 
+	}
 	(*orig_glEnable) (cap);
 }
 
