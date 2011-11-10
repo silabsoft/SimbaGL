@@ -132,6 +132,17 @@ void ExecuteCommands()
 		if(pCommands[0] == 5){ //using ResizeableClient?
 			resizeableClient = (pCommands[3] == 1? true : false) ;
 		}
+		if(pCommands[0] == 6){ //FindModelByTriangle
+			for (int i = 0; i < models.size(); i++)
+			{
+				if (models[i].triangles == pCommands[3])
+				{
+					pCommands[3] = models[i].x_s;	//xcoord
+					pCommands[4] = models[i].y_s;	//ycoord
+					pCommands[1] = 2;	//set command status to response
+				}
+			}
+		}
 
 	}
 	if(pCommands[1] != 2) //we have read the command and are not required to respond
