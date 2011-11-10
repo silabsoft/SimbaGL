@@ -64,3 +64,17 @@ void GetModelPositionByChecksum(int id, int& x,int& y){
 		y = -1;
 	}
 }
+void GetModelPositionByTriangleCount(int id, int& x,int& y){
+	DWORD * arr = requestSharedMemory();
+	arr[0] = 6;
+	arr[3] = id;
+	arr[1] = 1;
+	if(isGoingToCallBack()){
+		x = arr[3];
+		y = arr[4];
+	}
+	else{
+		x = -1;
+		y = -1;
+	}
+}

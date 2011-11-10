@@ -11,11 +11,12 @@ static char* exports[] = {
 	(char*)"getViewport","function InterceptionGetViewport(var x,y,width,height : integer) : boolean;",
 	(char*)"getGLPosition","procedure InterceptionGetGLPosition(x,y : integer; var posX,posY,posZ : double);",
 	(char*)"SetUsingResizeableClient", (char*)"procedure InterceptionSetUsingResizeableClient(b: boolean);",
-	(char*)"GetModelPositionByChecksum", (char*)"procedure InterceptionGetModelPositionByChecksum(id :integer; var x,y : integer);"
+	(char*)"GetModelPositionByChecksum", (char*)"procedure InterceptionGetModelPositionByChecksum(id :integer; var x,y : integer);",
+	(char*)"GetModelPositionByTriangleCount", (char*)"procedure InterceptionGetModelPositionByTriCount(triCount :integer; var x,y : integer);"
 };
 
 
-#define NumExports 7
+#define NumExports 8
 HMODULE dllinst;
 bool debug = false;
 DWORD * pCommands;
