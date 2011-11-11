@@ -1,0 +1,103 @@
+{Aftermath [script version 1]:
+  1. Update self with your CRC [used to detect if in combat]
+  2. Replace NPC_COWS in main loop with array of what you want to attack - use
+     NPC_CHICKEN or make your own [it occurs twice - once in the loop condition
+     and once in the CRC call].
+  3. Script terminates if RuneScape is not visible or if we are not logged in.
+  4. Has some token anti-ban: occasionally makes random mouse movements or
+     picks up mouse [see Idle method].
+  5. Does not handle random events.
+}
+
+program ChickenFucker;
+{$Loadlib SimbaInterception}
+{.include srl/srl.scar}
+
+const
+  self = 3485985718;    // Your character's model - update this.
+var
+  NPC_CHICKEN: array[0..0] of Integer;
+  NPC_COWS: array[0..2] of Integer;
+  x, y, i : Integer;
+  HPBarGreen : Integer;
+
+procedure LoadNPCs;
+begin
+  HPBarGreen := BitmapFromString(4, 2, 'meJxjOLuQ4fQcEAIy4Oj0HACJBgtc');
+  NPC_CHICKEN[0] := 2208061755;
+  NPC_COWS[0] := 779656846;
+  NPC_COWS[1] := 3606731925;
+  NPC_COWS[2] := 3461859901;
+end;
+
+{Aftermath: Print a message and terminate the script.}
+procedure Fatal(message: String);
+begin
+  WriteLn(message);
+  TerminateScript;
+end;
+
+{Aftermath: Look for ourself on the screen, and see if we have a HP bar above
+ our head [assuming that the coordinates returned for our model are the feet].
+ Return true if  yes. Tested on normal-size on min. Returns true if we are not
+ found.}
+function InCombat:Boolean;
+  var selfX, selfY: Integer;
+  var junkX, junkY: Integer;
+begin
+  InterceptionGetModelPositionByChecksum(self, selfX, selfY);
+  if (selfX > 0) then
+  begin
+    Result := FindBitmapIn(HPBarGreen, junkX, junkY, selfX - 30, selfY - 100, selfX + 30, selfY);
+  end else begin
+    Result := True;
+  end;
+end;
+
+procedure Idle;
+begin
+  Wait(2000 + random(500));
+  case Random(20) of
+    0: RandomMovement;
+    1: PickUpMouse;
+  end;
+end;
+
+begin
+  SetupSRL;
+  LoadNPCs;
+  ActivateClient;
+  Wait(2000);
+
+  Disguise('ChickenFucker');
+  // InterceptionSetOverlay(true);
+  // InterceptionSetDebug(true);
+
+  MouseSpeed := RandomRange(14, 18);
+
+  repeat
+    if not LoggedIn then
+    begin
+      WriteLn('Terminated script - we are not logged in.');
+      TerminateScript;
+    end;
+
+    if not InCombat then
+    begin
+      for i := 0 to Length(NPC_COWS) - 1 do
+      begin
+        InterceptionGetModelPositionByChecksum(NPC_COWS[i], x, y);
+
+        if((x > 0) and (x < 518) and (y < 334) and (y > 0)) then
+        begin
+          Mouse(x, y, 1, 1, true);
+          Idle;
+          Break;
+        end;
+      end;
+    end else
+    begin
+      Idle;
+    end;
+  until(false);
+end.
