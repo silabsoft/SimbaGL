@@ -1,6 +1,0 @@
-# Microsoft Developer Studio Generated Dependency File, included by SimbaInterception.mak
-
-.\Main.cpp : \
-	"..\..\..\..\..\program files\microsoft visual studio\vc98\include\basetsd.h"\
-	".\Main.h"\
-	
