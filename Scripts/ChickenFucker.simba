@@ -1,4 +1,4 @@
-{Aftermath [script version 1]:
+{Aftermath [script version 2]:
   1. Update self with your CRC [used to detect if in combat]
   2. Replace NPC_COWS in main loop with array of what you want to attack - use
      NPC_CHICKEN or make your own [it occurs twice - once in the loop condition
@@ -6,7 +6,7 @@
   3. Script terminates if RuneScape is not visible or if we are not logged in.
   4. Has some token anti-ban: occasionally makes random mouse movements or
      picks up mouse [see Idle method].
-  5. Does not handle random events.
+  5. Possibly handles some random events - let me know.
 }
 
 program ChickenFucker;
@@ -84,6 +84,7 @@ begin
 
     if not InCombat then
     begin
+      FindNonInventoryRandoms;
       for i := 0 to Length(NPC_COWS) - 1 do
       begin
         InterceptionGetModelPositionByChecksum(NPC_COWS[i], x, y);
