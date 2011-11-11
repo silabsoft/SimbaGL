@@ -15,7 +15,7 @@
 #include <time.h>
 #include <gl/gl.h>
 #include <gl/glu.h>
-#include <gl/glaux.h>
+//#include <gl/glaux.h>
 #include <math.h>
 
 extern BOOL Init (void);
