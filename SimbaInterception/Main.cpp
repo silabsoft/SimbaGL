@@ -122,7 +122,7 @@ bool isSharedMemoryReturned(){
 //loads the shared memory for communication.
 bool internalConstructor(){
 	HANDLE hMapFile;
-hMapFile = OpenFileMapping(
+hMapFile = OpenFileMappingA(
                    FILE_MAP_ALL_ACCESS,   // read/write access
                    FALSE,                 // do not inherit the name
                    szSharedMemoryName);               // name of mapping object
