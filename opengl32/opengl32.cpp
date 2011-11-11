@@ -330,10 +330,10 @@ void sys_glEnable (GLenum cap)
 				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				switch(dataDisplay){
 					case 0:
-						glPrint(drawModel.x_s,drawModel.y_s,"C: %d",drawModel.id);
+						glPrint(drawModel.x_s,drawModel.y_s,"C: %u",drawModel.id);
 					break;
 					case 1:
-						glPrint(drawModel.x_s,drawModel.y_s,"T: %d",drawModel.triangles);
+						glPrint(drawModel.x_s,drawModel.y_s,"T: %u",drawModel.triangles);
 					break;
 				}
 			}
