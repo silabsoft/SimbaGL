@@ -1394,6 +1394,7 @@ void sys_glRasterPos4dv (const GLdouble *v)
 
 void sys_glRasterPos4f (GLfloat x,  GLfloat y,  GLfloat z,  GLfloat w)
 {
+	add_log("glRasterPos4f x %d y %d z %d w %d",x,y,z,w);
 	(*orig_glRasterPos4f) (x, y, z, w);
 }
 

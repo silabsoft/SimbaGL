@@ -18,6 +18,7 @@ bool draw_overlay = false;
 unsigned int draw_stride = 12;
 unsigned int count = 0;
 bool resizeableClient = false;
+bool logging = true;
 struct Model
 {
 	GLfloat x;				//x,y,z coords
@@ -29,6 +30,7 @@ struct Model
 	unsigned int id;		//id of model
 	unsigned int count;
 	unsigned int triangles;
+	bool firstFirst;
 };
 
 vector<Model> models;
@@ -143,7 +145,6 @@ void ExecuteCommands()
 				}
 			}
 		}
-
 	}
 	if(pCommands[1] != 2) //we have read the command and are not required to respond
 		pCommands[1] = 0;
@@ -194,16 +195,22 @@ DWORD QuickChecksum(DWORD *pData, int size)
 
 void sys_glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t)
 {
+		if(logging)
+			add_log("glMultiTexCoord2fARB %d %d %d", target,s,t);
 	orig_glMultiTexCoord2fARB(target,s,t);
 }
 
 void sys_glActiveTextureARB(GLenum target)
 {
+			if(logging)
+			add_log("glActiveTextureARB %d", target);
 	orig_glActiveTextureARB(target);
 }
 
 void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum usage)
 {
+		if(logging)
+			add_log("BufferDataARB %d %d data %d", target,size,usage);
 	//	if(target == 0x8892)
 
 	//bufferCRC.reserve(lastBuffer+10);
@@ -214,9 +221,10 @@ void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum u
 }
 void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvoid *pointer)
 {
+		if(logging)
+			add_log("glVertexPointer %d %d %d pointer", size,type,stride);
 	last_stride = stride;
 	drawing_model = true;
-
 	if(stride == 12 && pointer != 0)		//Model model
 	{
 
@@ -224,11 +232,11 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 		GLfloat* temp;
 
 		temp = (GLfloat*)pointer;
-		newModel.x = *temp;
+		newModel.x = *temp; //outputs 0?
 		temp = (GLfloat*)((DWORD)pointer+4);
 		newModel.y = *temp;
 		temp = (GLfloat*)((DWORD)pointer+8);
-		newModel.z = *temp;
+		newModel.z = *temp; // outputs 0?
 
 		newModel.stride = stride;
 
@@ -243,12 +251,13 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 		newModel.stride = stride;
 		models.push_back(newModel);
 	}
-
 	(*orig_glVertexPointer) (size, type, stride, pointer);
 }
 
 void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoid *indices)
 {
+		if(logging)
+			add_log("glDrawElements %d %d %d indices",mode,count,type);
 	if(drawing_model){
 		models.back().id = bufferCRC[lastBuffer];
 		models.back().triangles = count/3;
@@ -263,10 +272,14 @@ void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoi
 	(*orig_glDrawElements) (mode, count, type, indices);
 }
 void sys_glDrawArrays(GLenum  mode,  GLint  first,  GLsizei  count){
+			if(logging)
+			add_log("glDrawArrays %d %d %d",mode,first,count);
 		(*orig_glDrawArrays) (mode,first,count);
 }
 void sys_glBindBufferARB(GLenum target, GLuint id)
 {
+			if(logging)
+			add_log("glBindBufferARBs %d %d",target,id);
 	lastBuffer = id;
 
 	orig_glBindBufferARB(target, id);
@@ -274,6 +287,8 @@ void sys_glBindBufferARB(GLenum target, GLuint id)
 
 void sys_glPopMatrix (void)
 {
+				if(logging)
+			add_log("glPopMatrix");
 	double ModelView[16];
 	double ProjView[16];
 	int Viewport[4];
@@ -307,13 +322,44 @@ void sys_glPopMatrix (void)
 
 void sys_glOrtho (GLdouble left,  GLdouble right,  GLdouble bottom,  GLdouble top,  GLdouble zNear,  GLdouble zFar)
 {
-
+	if(logging)
+		add_log("glOrtho %f %f %f %f %f %f",left,right,bottom,top,zNear,zFar);
 	(*orig_glOrtho) (left, right, bottom, top, zNear, zFar);
 }
 int dataDisplay = 0;
 bool drawAll;
 void sys_glEnable (GLenum cap)
 {
+	if(logging){
+		LPSTR name;
+		switch(cap){
+			case 32879:
+				name = "GL_TEXTURE_3D";
+				break;
+			case 0x8513:
+				name = "GL_TEXTURE_CUBE_MAP";
+				break;
+			case 0x0C60:
+				name = "GL_TEXTURE_GEN_S";
+				break;
+			case 0x0C61:
+				name = "GL_TEXTURE_GEN_T";
+				break;
+			case 0x0C62:
+				name = "GL_TEXTURE_GEN_R";
+				break;
+			case 0x0C63:
+				name = "GL_TEXTURE_GEN_Q";
+				break;
+			case 0x8620:
+				name ="GL_VERTEX_PROGRAM";
+				break;
+			default: 
+				name = "undefined";
+		}
+		add_log("glEnable %s (%d)",name, cap);
+	}
+
 	Model drawModel;
 	if(cap == GL_TEXTURE_RECTANGLE_ARB){
 		ExecuteCommands();											//check if command needs to be run every frame
@@ -321,6 +367,7 @@ void sys_glEnable (GLenum cap)
 		{
 			drawModel = models.back();
 			models.pop_back();	
+			
 			orig_glPushMatrix();
 			orig_glLoadIdentity();	
 			glEnableClientState( GL_VERTEX_ARRAY );		
@@ -331,17 +378,22 @@ void sys_glEnable (GLenum cap)
 				switch(dataDisplay){
 					case 0:
 						glPrint(drawModel.x_s,drawModel.y_s,"C: %u",drawModel.id);
-					break;
+						break;
 					case 1:
 						glPrint(drawModel.x_s,drawModel.y_s,"T: %u",drawModel.triangles);
-					break;
+						break;
+					case 2:
+						glPrint(drawModel.x_s,drawModel.y_s,"Xs: %d Ys: %d",drawModel.x_s,drawModel.y_s);
+						break;
+					case 3:
+						glPrint(drawModel.x_s,drawModel.y_s,"X: %f Y: %f Z: %f",drawModel.x,drawModel.y,drawModel.z);
+						break;
 				}
 			}
 			glEnable(GL_SCISSOR_TEST);
 			orig_glEnable(GL_TEXTURE_RECTANGLE_ARB);
 			orig_glPopMatrix();
 		}
-
 	}
 	if(GetAsyncKeyState(VK_END)&1){
 		draw = !draw;
@@ -365,23 +417,29 @@ void sys_glEnable (GLenum cap)
 		drawAll = !drawAll; //overlay for all models regardless of stride.
 	if(GetAsyncKeyState(VK_PRIOR)&1){
 		dataDisplay++;
-		dataDisplay = dataDisplay % 2; //display options for the debugging. 
+		dataDisplay = dataDisplay % 4; //display options for the debugging. 
 	}
 	(*orig_glEnable) (cap);
 }
 
 void sys_glPushMatrix (void)
 {
+		if(logging)
+		add_log("glPushMatrix");
 	(*orig_glPushMatrix) ();
 }
 
 void sys_wglSwapBuffers(HDC hDC)
 {
+			if(logging)
+		add_log("wglSwapBuffers");
 	(*orig_wglSwapBuffers) (hDC);
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)
 {
+				if(logging)
+		add_log("BindTextureEXT %d %d",target,texture);
 	orig_BindTextureEXT(target,texture);
 }
 
@@ -392,6 +450,42 @@ void sys_glAlphaFunc (GLenum func,  GLclampf ref)
 
 void sys_glBegin (GLenum mode)
 {
+	if(logging){
+		LPSTR name;
+		switch(mode){
+		case GL_POINTS:
+			name = "GL_POINTS";
+			break;
+		case GL_LINES:
+			name = "GL_LINES";
+			break;
+        case GL_LINE_STRIP:
+			name = "GL_LINE_STRIP";
+			break;
+        case GL_LINE_LOOP:
+			name = "GL_LINE_LOOP";
+			break;
+        case GL_TRIANGLES:
+			name = "GL_TRIANGLES";
+			break;
+        case GL_TRIANGLE_STRIP:
+			name = "GL_TRIANGLE_STRIP";
+			break;
+        case GL_TRIANGLE_FAN:
+			name = "GL_TRIANGLE_FAN";
+			break;
+        case GL_QUADS:
+			name = "GL_QUADS";
+			break;
+        case GL_QUAD_STRIP:
+			name = "GL_QUAD_STRIP";
+			break;
+        case GL_POLYGON:
+			name = "GL_POLYGON";
+			break;
+		}
+		add_log("glBegin %s (%d)",name,mode);
+	}
 	(*orig_glBegin) (mode);
 }
 
@@ -477,6 +571,8 @@ void sys_glDisable (GLenum cap)
 
 void sys_glEnd (void)
 {
+	if(logging)
+		add_log("glEnd");
 	(*orig_glEnd) ();
 }
 
@@ -553,6 +649,7 @@ void sys_glVertex2f (GLfloat x,  GLfloat y)
 
 void sys_glVertex3f (GLfloat x,  GLfloat y,  GLfloat z)
 {
+
 	(*orig_glVertex3f) (x, y, z);
 }
 
