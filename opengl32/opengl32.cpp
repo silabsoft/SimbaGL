@@ -513,18 +513,46 @@ break;
 case GL_UNSIGNED_INT_2_10_10_10_REV:
 name = "GL_UNSIGNED_INT_2_10_10_10_REV";
 */
-break;
+		case GL_POINTS:
+			name = "GL_POINTS";
+			break;
+		case GL_LINES:
+			name = "GL_LINES";
+			break;
+        case GL_LINE_STRIP:
+			name = "GL_LINE_STRIP";
+			break;
+        case GL_LINE_LOOP:
+			name = "GL_LINE_LOOP";
+			break;
+        case GL_TRIANGLES:
+			name = "GL_TRIANGLES";
+			break;
+        case GL_TRIANGLE_STRIP:
+			name = "GL_TRIANGLE_STRIP";
+			break;
+        case GL_TRIANGLE_FAN:
+			name = "GL_TRIANGLE_FAN";
+			break;
+        case GL_QUADS:
+			name = "GL_QUADS";
+			break;
+        case GL_QUAD_STRIP:
+			name = "GL_QUAD_STRIP";
+			break;
+        case GL_POLYGON:
+			name = "GL_POLYGON";
+			break;
+	
 			default: 
-				name = "undefined";
+				name = TEXT("undefined enum: %d",cap);
 		}
 			return name;
 }
 void sys_glEnable (GLenum cap)
 {
 	if(logging){
-		LPSTR name = GLenumToString(cap);
-
-		add_log("glEnable %s (%d)",name, cap);
+		add_log("glEnable %s",GLenumToString(cap));
 	}
 
 	Model drawModel;
@@ -620,40 +648,7 @@ void sys_glAlphaFunc (GLenum func,  GLclampf ref)
 void sys_glBegin (GLenum mode)
 {
 	if(logging){
-		LPSTR name;
-		switch(mode){
-		case GL_POINTS:
-			name = "GL_POINTS";
-			break;
-		case GL_LINES:
-			name = "GL_LINES";
-			break;
-        case GL_LINE_STRIP:
-			name = "GL_LINE_STRIP";
-			break;
-        case GL_LINE_LOOP:
-			name = "GL_LINE_LOOP";
-			break;
-        case GL_TRIANGLES:
-			name = "GL_TRIANGLES";
-			break;
-        case GL_TRIANGLE_STRIP:
-			name = "GL_TRIANGLE_STRIP";
-			break;
-        case GL_TRIANGLE_FAN:
-			name = "GL_TRIANGLE_FAN";
-			break;
-        case GL_QUADS:
-			name = "GL_QUADS";
-			break;
-        case GL_QUAD_STRIP:
-			name = "GL_QUAD_STRIP";
-			break;
-        case GL_POLYGON:
-			name = "GL_POLYGON";
-			break;
-		}
-		add_log("glBegin %s (%d)",name,mode);
+		add_log("glBegin %s",GLenumToString(mode));
 	}
 	(*orig_glBegin) (mode);
 }
