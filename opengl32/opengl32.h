@@ -22,7 +22,7 @@ extern BOOL Init (void);
 extern void __cdecl add_log (const char * fmt, ...);
 extern HMODULE hOriginalDll;
 
-
+LPSTR GLenumToString(GLenum);
 typedef void ( *func_glActiveTextureARB_t) (GLenum target);
 typedef void ( *func_glBufferDataARB_t) (GLenum target, GLsizei size, const void* data, GLenum usage);
 typedef void ( *func_glBindBufferARB_t) (GLenum target, GLuint id);

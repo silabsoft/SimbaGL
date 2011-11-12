@@ -203,7 +203,7 @@ void sys_glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t)
 void sys_glActiveTextureARB(GLenum target)
 {
 			if(logging)
-			add_log("glActiveTextureARB %d", target);
+			add_log("glActiveTextureARB %s ", GLenumToString(target));
 	orig_glActiveTextureARB(target);
 }
 
@@ -328,11 +328,10 @@ void sys_glOrtho (GLdouble left,  GLdouble right,  GLdouble bottom,  GLdouble to
 }
 int dataDisplay = 0;
 bool drawAll;
-void sys_glEnable (GLenum cap)
-{
-	if(logging){
-		LPSTR name;
-		switch(cap){
+
+LPSTR GLenumToString(GLenum cap){
+	LPSTR name;
+			switch(cap){
 			case 32879:
 				name = "GL_TEXTURE_3D";
 				break;
@@ -385,7 +384,7 @@ void sys_glEnable (GLenum cap)
 				name = "GL_SCISSOR_TEST";
 				break;
 			case 0x84F5:
-				name="34037";
+				name="GL_TEXTURE_RECTANGLE";
 				break;
 			case 0x809D:
 				name = "GL_MULTISAMPLE";
@@ -393,9 +392,138 @@ void sys_glEnable (GLenum cap)
 			case 0x0DE0:
 				name = "GL_TEXTURE_1D";
 				break;
+			case 0x8064:
+				name = "GL_PROXY_TEXTURE_2D";
+				break;	
+			case 0x8515:
+				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_X";
+				break;	
+			case 0x8516: 
+				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_X";
+				break;	
+			case 0x8517:
+				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Y";
+				break;	
+			case 0x8518:
+				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Y";
+				break;	
+			case 0x8519:
+				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Z ";  
+				break;	
+			case 0x851A:
+				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Z";
+				break;	
+			case 0x851B:
+				name = "GL_PROXY_TEXTURE_CUBE_MAP";      
+				break;	
+
+case GL_COLOR_INDEX:
+	name = "GL_COLOR_INDEX";
+	break;
+case GL_RED:
+	name = "GL_RED";
+	break;
+case GL_GREEN:
+	name = "GL_GREEN";
+	break;
+case GL_BLUE:
+	name = "GL_BLUE";
+	break;
+case GL_ALPHA:
+	name = "GL_ALPHA";
+	break;
+case GL_RGB:
+	name = "GL_RGB";
+	break;
+/*case GL_BGR:
+	name = "GL_BGR";
+	break;
+	*/
+case GL_RGBA:
+	name = "GL_RGBA";
+	break;
+/*case GL_BGRA:
+	name = "GL_BGRA";
+	break;
+	*/
+case GL_LUMINANCE:
+	name = "GL_LUMINANCE";
+	break;
+case GL_LUMINANCE_ALPHA:
+	name = "GL_LUMINANCE_ALPHA";
+	break;
+	case GL_UNSIGNED_BYTE:
+name = "GL_UNSIGNED_BYTE";
+break;
+case GL_BYTE:
+name = "GL_BYTE";
+break;
+case GL_BITMAP:
+name = "GL_BITMAP";
+break;
+case GL_UNSIGNED_SHORT:
+name = "GL_UNSIGNED_SHORT";
+break;
+case GL_SHORT:
+name = "GL_SHORT";
+break;
+case GL_UNSIGNED_INT:
+name = "GL_UNSIGNED_INT";
+break;
+case GL_INT:
+name = "GL_INT";
+break;
+case GL_FLOAT:
+name = "GL_FLOAT";
+break;
+/*
+case GL_UNSIGNED_BYTE_3_3_2:
+name = "GL_UNSIGNED_BYTE_3_3_2";
+break;
+case GL_UNSIGNED_BYTE_2_3_3_REV:
+name = "GL_UNSIGNED_BYTE_2_3_3_REV";
+break;
+case GL_UNSIGNED_SHORT_5_6_5:
+name = "GL_UNSIGNED_SHORT_5_6_5";
+break;
+case GL_UNSIGNED_SHORT_5_6_5_REV:
+name = "GL_UNSIGNED_SHORT_5_6_5_REV";
+break;
+case GL_UNSIGNED_SHORT_4_4_4_4:
+name = "GL_UNSIGNED_SHORT_4_4_4_4";
+break;
+case GL_UNSIGNED_SHORT_4_4_4_4_REV:
+name = "GL_UNSIGNED_SHORT_4_4_4_4_REV";
+break;
+case GL_UNSIGNED_SHORT_5_5_5_1:
+name = "GL_UNSIGNED_SHORT_5_5_5_1";
+break;
+case GL_UNSIGNED_SHORT_1_5_5_5_REV:
+name = "GL_UNSIGNED_SHORT_1_5_5_5_REV";
+break;
+case GL_UNSIGNED_INT_8_8_8_8:
+name = "GL_UNSIGNED_INT_8_8_8_8";
+break;
+case GL_UNSIGNED_INT_8_8_8_8_REV:
+name = "GL_UNSIGNED_INT_8_8_8_8_REV";
+break;
+case GL_UNSIGNED_INT_10_10_10_2:
+name = "GL_UNSIGNED_INT_10_10_10_2";
+break;
+case GL_UNSIGNED_INT_2_10_10_10_REV:
+name = "GL_UNSIGNED_INT_2_10_10_10_REV";
+*/
+break;
 			default: 
 				name = "undefined";
 		}
+			return name;
+}
+void sys_glEnable (GLenum cap)
+{
+	if(logging){
+		LPSTR name = GLenumToString(cap);
+
 		add_log("glEnable %s (%d)",name, cap);
 	}
 
@@ -484,6 +612,8 @@ void sys_BindTextureEXT(GLenum target, GLuint texture)
 
 void sys_glAlphaFunc (GLenum func,  GLclampf ref)
 {
+	if(logging)
+		add_log("AlphaFunc %d %f",func,ref);
 	(*orig_glAlphaFunc) (func, ref);
 }
 
@@ -530,81 +660,113 @@ void sys_glBegin (GLenum mode)
 
 void sys_glBitmap (GLsizei width,  GLsizei height,  GLfloat xorig,  GLfloat yorig,  GLfloat xmove,  GLfloat ymove,  const GLubyte *bitmap)
 {
+	if(logging)
+	add_log("glBitmap"); // need to add vars was lazy;
 	(*orig_glBitmap) (width, height, xorig, yorig, xmove, ymove, bitmap);
 }
 
 void sys_glBlendFunc (GLenum sfactor,  GLenum dfactor)
 {
+		if(logging)
+	add_log("glBlendFunc"); // need to add vars was lazy;
 	(*orig_glBlendFunc) (sfactor, dfactor);
 }
 
 void sys_glClear (GLbitfield mask)
 {
+			if(logging)
+	add_log("glClear"); // need to add vars was lazy;
 	(*orig_glClear)(mask);
 }
 
 void sys_glClearAccum (GLfloat red,  GLfloat green,  GLfloat blue,  GLfloat alpha)
 {
+				if(logging)
+	add_log("glClearAccum"); // need to add vars was lazy;
 	(*orig_glClearAccum) (red, green, blue, alpha);
 }
 
 void sys_glClearColor (GLclampf red,  GLclampf green,  GLclampf blue,  GLclampf alpha)
 {
+	if(logging)
+		add_log("glClearColor"); // need to add vars was lazy;
 	(*orig_glClearColor) (red, green, blue, alpha);
 }
 
 void sys_glColor3f (GLfloat red,  GLfloat green,  GLfloat blue)
 {
+	if(logging)
+		add_log("glColor3f"); // need to add vars was lazy;
 	(*orig_glColor3f) (red, green, blue);
 }
 
 void sys_glColor3ub (GLubyte red,  GLubyte green,  GLubyte blue)
 {
+	if(logging)
+		add_log("glColor3ub"); // need to add vars was lazy;
 	(*orig_glColor3ub) (red, green, blue);
 }
 
 void sys_glColor3ubv (const GLubyte *v)
 {
+	if(logging)
+		add_log("glColor3ubv"); // need to add vars was lazy;
 	(*orig_glColor3ubv) (v);
 }
 
 void sys_glColor4f (GLfloat red,  GLfloat green,  GLfloat blue,  GLfloat alpha)
 {
+	if(logging)
+		add_log("glColor4f"); // need to add vars was lazy;
 	(*orig_glColor4f) (red, green, blue, alpha);
 }
 
 void sys_glColor4ub (GLubyte red,  GLubyte green,  GLubyte blue,  GLubyte alpha)
 {
+	if(logging)
+		add_log("glColor4ub"); // need to add vars was lazy;
 	(*orig_glColor4ub) (red, green, blue, alpha);
 }
 
 void sys_glCullFace (GLenum mode)
 {
+	if(logging)
+		add_log("glCullFace"); // need to add vars was lazy;
 	(*orig_glCullFace) (mode);
 }
 
 void sys_glDeleteTextures (GLsizei n,  const GLuint *textures)
 {
+	if(logging)
+		add_log("glDeleteTextures"); // need to add vars was lazy;
 	(*orig_glDeleteTextures) (n, textures);
 }
 
 void sys_glDepthFunc (GLenum func)
 {
+	if(logging)
+		add_log("glDepthFunc"); // need to add vars was lazy;
 	(*orig_glDepthFunc) (func);
 }
 
 void sys_glDepthMask (GLboolean flag)
 {
+	if(logging)
+		add_log("glDepthMask"); // need to add vars was lazy;
 	(*orig_glDepthMask) (flag);
 }
 
 void sys_glDepthRange (GLclampd zNear,  GLclampd zFar)
 {
+	if(logging)
+		add_log("glDepthRange"); // need to add vars was lazy;
 	(*orig_glDepthRange) (zNear, zFar);
 }
 
 void sys_glDisable (GLenum cap)
 {
+	if(logging)
+		add_log("glDisable %s",GLenumToString(cap)); // need to add vars was lazy;
 	(*orig_glDisable) (cap);
 }
 
@@ -617,88 +779,121 @@ void sys_glEnd (void)
 
 void sys_glFrustum (GLdouble left,  GLdouble right,  GLdouble bottom,  GLdouble top,  GLdouble zNear,  GLdouble zFar)
 {
+	if(logging)
+		add_log("glFrustum"); // need to add vars was lazy;
 	(*orig_glFrustum) (left, right, bottom, top, zNear, zFar);
 }
 
 void sys_glPopName (void)
 {
+	if(logging)
+		add_log("glPopName"); // need to add vars was lazy;
 	(*orig_glPopName) ();
 }
 
 void sys_glPrioritizeTextures (GLsizei n,  const GLuint *textures,  const GLclampf *priorities)
 {
+	if(logging)
+		add_log("glPrioritizeTextures "); // need to add vars was lazy;
 	(*orig_glPrioritizeTextures) (n, textures, priorities);
 }
 
 void sys_glPushAttrib (GLbitfield mask)
 {
+	if(logging)
+		add_log("glPushAttrib %d",mask); // need to add vars was lazy;
 	(*orig_glPushAttrib) (mask);
 }
 
 void sys_glPushClientAttrib (GLbitfield mask)
 {
+	if(logging)
+		add_log("glPushClientAttrib"); // need to add vars was lazy;
 	(*orig_glPushClientAttrib) (mask);
 }
 
 void sys_glRotatef (GLfloat angle,  GLfloat x,  GLfloat y,  GLfloat z)
 {
-	
+	if(logging)
+		add_log("glRotatef %f %f %f %f",angle, x, y, z); // need to add vars was lazy;
 	(*orig_glRotatef) (angle, x, y, z);
 }
 
 void sys_glShadeModel (GLenum mode)
 {
+	if(logging)
+		add_log("glShadeModel"); // need to add vars was lazy;
 	(*orig_glShadeModel) (mode);
 }
 
 void sys_glTexCoord2f (GLfloat s,  GLfloat t)
 {
+	if(logging)
+		add_log("glTexCoord2f"); // need to add vars was lazy;
 	(*orig_glTexCoord2f) (s, t);
 }
 
 void sys_glTexEnvf (GLenum target,  GLenum pname,  GLfloat param)
 {
+	if(logging)
+		add_log("glTexEnvf"); // need to add vars was lazy;
 	(*orig_glTexEnvf) (target, pname, param);
 }
 
 void sys_glTexImage2D (GLenum target,  GLint level,  GLint internalformat,  GLsizei width,  GLsizei height,  GLint border,  GLenum format,  GLenum type,  const GLvoid *pixels)
 {
+	if(logging){
+		add_log("glTexImage2D %s %d %d %d %d %d %s %s ",GLenumToString(target),level,internalformat,width,height,border,GLenumToString(format),GLenumToString(type)); // need to add vars was lazy;
+	}
 	(*orig_glTexImage2D) (target, level, internalformat, width, height, border, format, type, pixels);
 }
 
 void sys_glTexParameterf (GLenum target,  GLenum pname,  GLfloat param)
 {
+	if(logging)
+		add_log("glTexParameterf "); // need to add vars was lazy;
 	(*orig_glTexParameterf) (target, pname, param);
 }
 
 void sys_glTranslated (GLdouble x,  GLdouble y,  GLdouble z)
 {
+	if(logging)
+		add_log("glTranslated"); // need to add vars was lazy;
 	(*orig_glTranslated) (x, y, z);
 }
 
 void sys_glTranslatef (GLfloat x,  GLfloat y,  GLfloat z)
 {
+	if(logging)
+		add_log("glTranslatef "); // need to add vars was lazy;
 	(*orig_glTranslatef) (x, y, z);
 }
 
 void sys_glVertex2f (GLfloat x,  GLfloat y)
 {
+	if(logging)
+		add_log("glVertex2f %f %f",x,y); // need to add vars was lazy;
 	(*orig_glVertex2f) (x, y);
 }
 
 void sys_glVertex3f (GLfloat x,  GLfloat y,  GLfloat z)
 {
-
+	if(logging)
+		add_log("glVertex3f "); // need to add vars was lazy;
 	(*orig_glVertex3f) (x, y, z);
 }
 
 void sys_glVertex3fv (const GLfloat *v)
 {
+	if(logging)
+		add_log("glVertex3fv"); // need to add vars was lazy;
 	(*orig_glVertex3fv) (v);
 }
 
 void sys_glViewport (GLint x,  GLint y,  GLsizei width,  GLsizei height)
 {
+	if(logging)
+		add_log("glViewport %d %d %d %d",x, y, width, height); // need to add vars was lazy;
 	(*orig_glViewport) (x, y, width, height);
 }
 
