@@ -354,6 +354,45 @@ void sys_glEnable (GLenum cap)
 			case 0x8620:
 				name ="GL_VERTEX_PROGRAM";
 				break;
+			case 0x0DE1:
+				name = "GL_TEXTURE_2D";
+				break;
+			case 0x0BE2:
+				name = "GL_BEND";
+				break;
+			case 0x0BC0:
+				name = "GL_ALPHA_TEST";
+				break;
+			case 0x0B50:
+				name = "GL_LIGHTING";
+				break;
+			case 0x0B71:
+				name ="GL_DEPTH_TEST";
+				break;
+			case 0x0B44:
+				name ="GL_CULL_FACE";
+				break;
+			case 0x0B57:
+				name ="GL_COLOR_MATERIAL";
+				break;
+			case 0x4000:
+				name ="GL_LIGHT0";
+				break;
+			case 0x4001:
+				name ="GL_LIGHT1";
+				break;
+			case 0x0C11:
+				name = "GL_SCISSOR_TEST";
+				break;
+			case 0x84F5:
+				name="34037";
+				break;
+			case 0x809D:
+				name = "GL_MULTISAMPLE";
+				break;
+			case 0x0DE0:
+				name = "GL_TEXTURE_1D";
+				break;
 			default: 
 				name = "undefined";
 		}
