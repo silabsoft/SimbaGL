@@ -10,15 +10,17 @@
 #include "opengl32.h"
 #include "uifunction.h"
 #include <vector>
+#include <time.h>
 using namespace std;
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
 bool drawing_model;
 bool draw = false;
 bool draw_overlay = false;
+bool drawingGameScreen;
 unsigned int draw_stride = 12;
 unsigned int count = 0;
 bool resizeableClient = false;
-bool logging = true;
+bool logging;
 struct Model
 {
 	GLfloat x;				//x,y,z coords
@@ -54,7 +56,7 @@ unsigned int last_stride;
 void BuildFonts()
 {
 	hDC			= wglGetCurrentDC();
-	
+
 	FontBase	= glGenLists(96);
 	hFont		= CreateFont(-10, 0, 0, 0, FW_NORMAL,	FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, FF_DONTCARE|DEFAULT_PITCH, "Courier"); //"Lucida Console");
 	hOldFont	= (HFONT) SelectObject(hDC, hFont);
@@ -67,15 +69,16 @@ void BuildFonts()
 
 void CreateSharedMemory()
 {
+	srand ( time(NULL) );
 	HANDLE hMapFile;
 
 	hMapFile = CreateFileMapping(
-                 INVALID_HANDLE_VALUE,    // use paging file
-                 NULL,                    // default security
-                 PAGE_READWRITE,          // read/write access
-                 0,                       // maximum object size (high-order DWORD)
-                 255,                     // maximum object size (low-order DWORD)
-                 szSharedMemoryName);     // name of mapping object
+		INVALID_HANDLE_VALUE,    // use paging file
+		NULL,                    // default security
+		PAGE_READWRITE,          // read/write access
+		0,                       // maximum object size (high-order DWORD)
+		255,                     // maximum object size (low-order DWORD)
+		szSharedMemoryName);     // name of mapping object
 
 	if (hMapFile == NULL)
 	{
@@ -83,10 +86,10 @@ void CreateSharedMemory()
 		return;
 	}
 	pCommands = (DWORD *)MapViewOfFile(hMapFile,   // handle to map object
-							FILE_MAP_ALL_ACCESS, // read/write permission
-							0,
-							0,
-							255);
+		FILE_MAP_ALL_ACCESS, // read/write permission
+		0,
+		0,
+		255);
 	if (pCommands == NULL)
 	{
 		add_log("Could not map view of file (%d).\n",GetLastError());
@@ -105,9 +108,9 @@ void ExecuteCommands()
 			{
 				if (models[i].id == pCommands[3])
 				{
-				pCommands[3] = models[i].x_s;	//xcoord
-				pCommands[4] = models[i].y_s;	//ycoord
-				pCommands[1] = 2;	//set command status to response
+					pCommands[3] = models[i].x_s;	//xcoord
+					pCommands[4] = models[i].y_s;	//ycoord
+					pCommands[1] = 2;	//set command status to response
 				}
 			}
 		}
@@ -195,22 +198,22 @@ DWORD QuickChecksum(DWORD *pData, int size)
 
 void sys_glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t)
 {
-		if(logging)
-			add_log("glMultiTexCoord2fARB %d %d %d", target,s,t);
+	if(logging)
+		add_log("glMultiTexCoord2fARB %d %d %d", target,s,t);
 	orig_glMultiTexCoord2fARB(target,s,t);
 }
 
 void sys_glActiveTextureARB(GLenum target)
 {
-			if(logging)
-			add_log("glActiveTextureARB %s ", GLenumToString(target));
+	if(logging)
+		add_log("glActiveTextureARB %s ", GLenumToString(target));
 	orig_glActiveTextureARB(target);
 }
 
 void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum usage)
 {
-		if(logging)
-			add_log("BufferDataARB %d %d data %d", target,size,usage);
+	if(logging)
+		add_log("BufferDataARB %d %d data %d", target,size,usage);
 	//	if(target == 0x8892)
 
 	//bufferCRC.reserve(lastBuffer+10);
@@ -221,21 +224,23 @@ void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum u
 }
 void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvoid *pointer)
 {
-		if(logging)
-			add_log("glVertexPointer %d %d %d pointer", size,type,stride);
+	if(logging)
+		add_log("glVertexPointer %d %d %d pointer", size,type,stride);
 	last_stride = stride;
 	drawing_model = true;
-	if(stride == 12 && pointer != 0)		//Model model
+	if(size == 3 && type == GL_FLOAT && pointer != 0)		//Model model
 	{
 
 		Model newModel;
 		GLfloat* temp;
-
-		temp = (GLfloat*)pointer;
+		int r = 0;
+		if(!draw_overlay) //we only choose random vert when we are not displaying debug for ease of reading purposes.
+			r = rand() % 100; //although I do not have a way of grabbing vertex count I am asuming every model has atleast 100 verts.
+		temp = (GLfloat*)((DWORD)pointer+(r*12));
 		newModel.x = *temp; //outputs 0?
-		temp = (GLfloat*)((DWORD)pointer+4);
+		temp = (GLfloat*)((DWORD)pointer+(4+(r*12)));
 		newModel.y = *temp;
-		temp = (GLfloat*)((DWORD)pointer+8);
+		temp = (GLfloat*)((DWORD)pointer+(8+(r*12)));
 		newModel.z = *temp; // outputs 0?
 
 		newModel.stride = stride;
@@ -256,8 +261,8 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 
 void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoid *indices)
 {
-		if(logging)
-			add_log("glDrawElements %d %d %d indices",mode,count,type);
+	if(logging)
+		add_log("glDrawElements %d %d %d indices",mode,count,type);
 	if(drawing_model){
 		models.back().id = bufferCRC[lastBuffer];
 		models.back().triangles = count/3;
@@ -266,20 +271,20 @@ void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoi
 		else
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
-		else{
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		}
+	else{
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
 	(*orig_glDrawElements) (mode, count, type, indices);
 }
 void sys_glDrawArrays(GLenum  mode,  GLint  first,  GLsizei  count){
-			if(logging)
-			add_log("glDrawArrays %d %d %d",mode,first,count);
-		(*orig_glDrawArrays) (mode,first,count);
+	if(logging)
+		add_log("glDrawArrays %d %d %d",mode,first,count);
+	(*orig_glDrawArrays) (mode,first,count);
 }
 void sys_glBindBufferARB(GLenum target, GLuint id)
 {
-			if(logging)
-			add_log("glBindBufferARBs %d %d",target,id);
+	if(logging)
+		add_log("glBindBufferARBs %d %d",target,id);
 	lastBuffer = id;
 
 	orig_glBindBufferARB(target, id);
@@ -287,8 +292,8 @@ void sys_glBindBufferARB(GLenum target, GLuint id)
 
 void sys_glPopMatrix (void)
 {
-				if(logging)
-			add_log("glPopMatrix");
+	if(logging)
+		add_log("glPopMatrix");
 	double ModelView[16];
 	double ProjView[16];
 	int Viewport[4];
@@ -299,7 +304,7 @@ void sys_glPopMatrix (void)
 		orig_glGetDoublev(GL_MODELVIEW_MATRIX, ModelView);
 		orig_glGetDoublev(GL_PROJECTION_MATRIX, ProjView) ;
 		if(resizeableClient){
-		orig_glGetIntegerv(GL_VIEWPORT, Viewport);
+			orig_glGetIntegerv(GL_VIEWPORT, Viewport);
 		}
 		else{
 			Viewport[0] = 4;
@@ -331,265 +336,273 @@ bool drawAll;
 
 LPSTR GLenumToString(GLenum cap){
 	LPSTR name;
-			switch(cap){
-			case 32879:
-				name = "GL_TEXTURE_3D";
-				break;
-			case 0x8513:
-				name = "GL_TEXTURE_CUBE_MAP";
-				break;
-			case 0x0C60:
-				name = "GL_TEXTURE_GEN_S";
-				break;
-			case 0x0C61:
-				name = "GL_TEXTURE_GEN_T";
-				break;
-			case 0x0C62:
-				name = "GL_TEXTURE_GEN_R";
-				break;
-			case 0x0C63:
-				name = "GL_TEXTURE_GEN_Q";
-				break;
-			case 0x8620:
-				name ="GL_VERTEX_PROGRAM";
-				break;
-			case 0x0DE1:
-				name = "GL_TEXTURE_2D";
-				break;
-			case 0x0BE2:
-				name = "GL_BEND";
-				break;
-			case 0x0BC0:
-				name = "GL_ALPHA_TEST";
-				break;
-			case 0x0B50:
-				name = "GL_LIGHTING";
-				break;
-			case 0x0B71:
-				name ="GL_DEPTH_TEST";
-				break;
-			case 0x0B44:
-				name ="GL_CULL_FACE";
-				break;
-			case 0x0B57:
-				name ="GL_COLOR_MATERIAL";
-				break;
-			case 0x4000:
-				name ="GL_LIGHT0";
-				break;
-			case 0x4001:
-				name ="GL_LIGHT1";
-				break;
-			case 0x0C11:
-				name = "GL_SCISSOR_TEST";
-				break;
-			case 0x84F5:
-				name="GL_TEXTURE_RECTANGLE";
-				break;
-			case 0x809D:
-				name = "GL_MULTISAMPLE";
-				break;
-			case 0x0DE0:
-				name = "GL_TEXTURE_1D";
-				break;
-			case 0x8064:
-				name = "GL_PROXY_TEXTURE_2D";
-				break;	
-			case 0x8515:
-				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_X";
-				break;	
-			case 0x8516: 
-				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_X";
-				break;	
-			case 0x8517:
-				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Y";
-				break;	
-			case 0x8518:
-				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Y";
-				break;	
-			case 0x8519:
-				name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Z ";  
-				break;	
-			case 0x851A:
-				name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Z";
-				break;	
-			case 0x851B:
-				name = "GL_PROXY_TEXTURE_CUBE_MAP";      
-				break;	
+	switch(cap){
+	case 32879:
+		name = "GL_TEXTURE_3D";
+		break;
+	case 0x8513:
+		name = "GL_TEXTURE_CUBE_MAP";
+		break;
+	case 0x0C60:
+		name = "GL_TEXTURE_GEN_S";
+		break;
+	case 0x0C61:
+		name = "GL_TEXTURE_GEN_T";
+		break;
+	case 0x0C62:
+		name = "GL_TEXTURE_GEN_R";
+		break;
+	case 0x0C63:
+		name = "GL_TEXTURE_GEN_Q";
+		break;
+	case 0x8620:
+		name ="GL_VERTEX_PROGRAM";
+		break;
+	case 0x0DE1:
+		name = "GL_TEXTURE_2D";
+		break;
+	case 0x0BE2:
+		name = "GL_BEND";
+		break;
+	case 0x0BC0:
+		name = "GL_ALPHA_TEST";
+		break;
+	case 0x0B50:
+		name = "GL_LIGHTING";
+		break;
+	case 0x0B71:
+		name ="GL_DEPTH_TEST";
+		break;
+	case 0x0B44:
+		name ="GL_CULL_FACE";
+		break;
+	case 0x0B57:
+		name ="GL_COLOR_MATERIAL";
+		break;
+	case 0x4000:
+		name ="GL_LIGHT0";
+		break;
+	case 0x4001:
+		name ="GL_LIGHT1";
+		break;
+	case 0x0C11:
+		name = "GL_SCISSOR_TEST";
+		break;
+	case 0x84F5:
+		name="GL_TEXTURE_RECTANGLE";
+		break;
+	case 0x809D:
+		name = "GL_MULTISAMPLE";
+		break;
+	case 0x0DE0:
+		name = "GL_TEXTURE_1D";
+		break;
+	case 0x8064:
+		name = "GL_PROXY_TEXTURE_2D";
+		break;	
+	case 0x8515:
+		name = "GL_TEXTURE_CUBE_MAP_POSITIVE_X";
+		break;	
+	case 0x8516: 
+		name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_X";
+		break;	
+	case 0x8517:
+		name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Y";
+		break;	
+	case 0x8518:
+		name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Y";
+		break;	
+	case 0x8519:
+		name = "GL_TEXTURE_CUBE_MAP_POSITIVE_Z ";  
+		break;	
+	case 0x851A:
+		name = "GL_TEXTURE_CUBE_MAP_NEGATIVE_Z";
+		break;	
+	case 0x851B:
+		name = "GL_PROXY_TEXTURE_CUBE_MAP";      
+		break;	
 
-case GL_COLOR_INDEX:
-	name = "GL_COLOR_INDEX";
-	break;
-case GL_RED:
-	name = "GL_RED";
-	break;
-case GL_GREEN:
-	name = "GL_GREEN";
-	break;
-case GL_BLUE:
-	name = "GL_BLUE";
-	break;
-case GL_ALPHA:
-	name = "GL_ALPHA";
-	break;
-case GL_RGB:
-	name = "GL_RGB";
-	break;
-/*case GL_BGR:
-	name = "GL_BGR";
-	break;
-	*/
-case GL_RGBA:
-	name = "GL_RGBA";
-	break;
-/*case GL_BGRA:
-	name = "GL_BGRA";
-	break;
-	*/
-case GL_LUMINANCE:
-	name = "GL_LUMINANCE";
-	break;
-case GL_LUMINANCE_ALPHA:
-	name = "GL_LUMINANCE_ALPHA";
-	break;
+	case GL_COLOR_INDEX:
+		name = "GL_COLOR_INDEX";
+		break;
+	case GL_RED:
+		name = "GL_RED";
+		break;
+	case GL_GREEN:
+		name = "GL_GREEN";
+		break;
+	case GL_BLUE:
+		name = "GL_BLUE";
+		break;
+	case GL_ALPHA:
+		name = "GL_ALPHA";
+		break;
+	case GL_RGB:
+		name = "GL_RGB";
+		break;
+		/*case GL_BGR:
+		name = "GL_BGR";
+		break;
+		*/
+	case GL_RGBA:
+		name = "GL_RGBA";
+		break;
+		/*case GL_BGRA:
+		name = "GL_BGRA";
+		break;
+		*/
+	case GL_LUMINANCE:
+		name = "GL_LUMINANCE";
+		break;
+	case GL_LUMINANCE_ALPHA:
+		name = "GL_LUMINANCE_ALPHA";
+		break;
 	case GL_UNSIGNED_BYTE:
-name = "GL_UNSIGNED_BYTE";
-break;
-case GL_BYTE:
-name = "GL_BYTE";
-break;
-case GL_BITMAP:
-name = "GL_BITMAP";
-break;
-case GL_UNSIGNED_SHORT:
-name = "GL_UNSIGNED_SHORT";
-break;
-case GL_SHORT:
-name = "GL_SHORT";
-break;
-case GL_UNSIGNED_INT:
-name = "GL_UNSIGNED_INT";
-break;
-case GL_INT:
-name = "GL_INT";
-break;
-case GL_FLOAT:
-name = "GL_FLOAT";
-break;
-/*
-case GL_UNSIGNED_BYTE_3_3_2:
-name = "GL_UNSIGNED_BYTE_3_3_2";
-break;
-case GL_UNSIGNED_BYTE_2_3_3_REV:
-name = "GL_UNSIGNED_BYTE_2_3_3_REV";
-break;
-case GL_UNSIGNED_SHORT_5_6_5:
-name = "GL_UNSIGNED_SHORT_5_6_5";
-break;
-case GL_UNSIGNED_SHORT_5_6_5_REV:
-name = "GL_UNSIGNED_SHORT_5_6_5_REV";
-break;
-case GL_UNSIGNED_SHORT_4_4_4_4:
-name = "GL_UNSIGNED_SHORT_4_4_4_4";
-break;
-case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-name = "GL_UNSIGNED_SHORT_4_4_4_4_REV";
-break;
-case GL_UNSIGNED_SHORT_5_5_5_1:
-name = "GL_UNSIGNED_SHORT_5_5_5_1";
-break;
-case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-name = "GL_UNSIGNED_SHORT_1_5_5_5_REV";
-break;
-case GL_UNSIGNED_INT_8_8_8_8:
-name = "GL_UNSIGNED_INT_8_8_8_8";
-break;
-case GL_UNSIGNED_INT_8_8_8_8_REV:
-name = "GL_UNSIGNED_INT_8_8_8_8_REV";
-break;
-case GL_UNSIGNED_INT_10_10_10_2:
-name = "GL_UNSIGNED_INT_10_10_10_2";
-break;
-case GL_UNSIGNED_INT_2_10_10_10_REV:
-name = "GL_UNSIGNED_INT_2_10_10_10_REV";
-*/
-		case GL_POINTS:
-			name = "GL_POINTS";
-			break;
-		case GL_LINES:
-			name = "GL_LINES";
-			break;
-        case GL_LINE_STRIP:
-			name = "GL_LINE_STRIP";
-			break;
-        case GL_LINE_LOOP:
-			name = "GL_LINE_LOOP";
-			break;
-        case GL_TRIANGLES:
-			name = "GL_TRIANGLES";
-			break;
-        case GL_TRIANGLE_STRIP:
-			name = "GL_TRIANGLE_STRIP";
-			break;
-        case GL_TRIANGLE_FAN:
-			name = "GL_TRIANGLE_FAN";
-			break;
-        case GL_QUADS:
-			name = "GL_QUADS";
-			break;
-        case GL_QUAD_STRIP:
-			name = "GL_QUAD_STRIP";
-			break;
-        case GL_POLYGON:
-			name = "GL_POLYGON";
-			break;
-	
-			default: 
-				name = TEXT("undefined enum: %d",cap);
-		}
-			return name;
+		name = "GL_UNSIGNED_BYTE";
+		break;
+	case GL_BYTE:
+		name = "GL_BYTE";
+		break;
+	case GL_BITMAP:
+		name = "GL_BITMAP";
+		break;
+	case GL_UNSIGNED_SHORT:
+		name = "GL_UNSIGNED_SHORT";
+		break;
+	case GL_SHORT:
+		name = "GL_SHORT";
+		break;
+	case GL_UNSIGNED_INT:
+		name = "GL_UNSIGNED_INT";
+		break;
+	case GL_INT:
+		name = "GL_INT";
+		break;
+	case GL_FLOAT:
+		name = "GL_FLOAT";
+		break;
+		/*
+		case GL_UNSIGNED_BYTE_3_3_2:
+		name = "GL_UNSIGNED_BYTE_3_3_2";
+		break;
+		case GL_UNSIGNED_BYTE_2_3_3_REV:
+		name = "GL_UNSIGNED_BYTE_2_3_3_REV";
+		break;
+		case GL_UNSIGNED_SHORT_5_6_5:
+		name = "GL_UNSIGNED_SHORT_5_6_5";
+		break;
+		case GL_UNSIGNED_SHORT_5_6_5_REV:
+		name = "GL_UNSIGNED_SHORT_5_6_5_REV";
+		break;
+		case GL_UNSIGNED_SHORT_4_4_4_4:
+		name = "GL_UNSIGNED_SHORT_4_4_4_4";
+		break;
+		case GL_UNSIGNED_SHORT_4_4_4_4_REV:
+		name = "GL_UNSIGNED_SHORT_4_4_4_4_REV";
+		break;
+		case GL_UNSIGNED_SHORT_5_5_5_1:
+		name = "GL_UNSIGNED_SHORT_5_5_5_1";
+		break;
+		case GL_UNSIGNED_SHORT_1_5_5_5_REV:
+		name = "GL_UNSIGNED_SHORT_1_5_5_5_REV";
+		break;
+		case GL_UNSIGNED_INT_8_8_8_8:
+		name = "GL_UNSIGNED_INT_8_8_8_8";
+		break;
+		case GL_UNSIGNED_INT_8_8_8_8_REV:
+		name = "GL_UNSIGNED_INT_8_8_8_8_REV";
+		break;
+		case GL_UNSIGNED_INT_10_10_10_2:
+		name = "GL_UNSIGNED_INT_10_10_10_2";
+		break;
+		case GL_UNSIGNED_INT_2_10_10_10_REV:
+		name = "GL_UNSIGNED_INT_2_10_10_10_REV";
+		*/
+	case GL_POINTS:
+		name = "GL_POINTS";
+		break;
+	case GL_LINES:
+		name = "GL_LINES";
+		break;
+	case GL_LINE_STRIP:
+		name = "GL_LINE_STRIP";
+		break;
+	case GL_LINE_LOOP:
+		name = "GL_LINE_LOOP";
+		break;
+	case GL_TRIANGLES:
+		name = "GL_TRIANGLES";
+		break;
+	case GL_TRIANGLE_STRIP:
+		name = "GL_TRIANGLE_STRIP";
+		break;
+	case GL_TRIANGLE_FAN:
+		name = "GL_TRIANGLE_FAN";
+		break;
+	case GL_QUADS:
+		name = "GL_QUADS";
+		break;
+	case GL_QUAD_STRIP:
+		name = "GL_QUAD_STRIP";
+		break;
+	case GL_POLYGON:
+		name = "GL_POLYGON";
+		break;
+
+	default: 
+		name = TEXT("undefined enum: %d",cap);
+	}
+	return name;
 }
 void sys_glEnable (GLenum cap)
 {
 	if(logging){
-		add_log("glEnable %s",GLenumToString(cap));
+		add_log("glEnable %s (%d)",GLenumToString(cap),cap);
 	}
-
+	//wtf commit!
 	Model drawModel;
-	if(cap == GL_TEXTURE_RECTANGLE_ARB){
-		ExecuteCommands();											//check if command needs to be run every frame
+	if(!drawingGameScreen){
+			ExecuteCommands();												//check if command needs to be run every frame
 		while (!models.empty())
 		{
 			drawModel = models.back();
 			models.pop_back();	
-			
-			orig_glPushMatrix();
-			orig_glLoadIdentity();	
-			glEnableClientState( GL_VERTEX_ARRAY );		
-			orig_glDisable(GL_TEXTURE_RECTANGLE_ARB);
-			glDisable(GL_SCISSOR_TEST);
+
+		//	glPushMatrix();
+		//	glLoadIdentity();
+		//	orig_glRotatef(0.3f,0.f,0.4f,0.f);
+		//	orig_glEnableClientState( GL_VERTEX_ARRAY );		
+		//	orig_glDisable(GL_QUADS);
+			orig_glDisable(GL_SCISSOR_TEST);
 			if(draw_overlay && draw_stride == drawModel.stride || draw_overlay && drawAll){
 				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				switch(dataDisplay){
-					case 0:
-						glPrint(drawModel.x_s,drawModel.y_s,"C: %u",drawModel.id);
-						break;
-					case 1:
-						glPrint(drawModel.x_s,drawModel.y_s,"T: %u",drawModel.triangles);
-						break;
-					case 2:
-						glPrint(drawModel.x_s,drawModel.y_s,"Xs: %d Ys: %d",drawModel.x_s,drawModel.y_s);
-						break;
-					case 3:
-						glPrint(drawModel.x_s,drawModel.y_s,"X: %f Y: %f Z: %f",drawModel.x,drawModel.y,drawModel.z);
-						break;
+				case 0:
+					glPrint(drawModel.x_s,drawModel.y_s,"C: %u",drawModel.id);
+					break;
+				case 1:
+					glPrint(drawModel.x_s,drawModel.y_s,"T: %u",drawModel.triangles);
+					break;
+				case 2:
+					glPrint(drawModel.x_s,drawModel.y_s,"Xs: %d Ys: %d",drawModel.x_s,drawModel.y_s);
+					break;
+				case 3:
+					glPrint(drawModel.x_s,drawModel.y_s,"X: %f Y: %f Z: %f",drawModel.x,drawModel.y,drawModel.z);
+					break;
 				}
 			}
-			glEnable(GL_SCISSOR_TEST);
-			orig_glEnable(GL_TEXTURE_RECTANGLE_ARB);
-			orig_glPopMatrix();
+		//	orig_glEnable(GL_SCISSOR_TEST);
+		//	orig_glEnable(GL_QUADS);
+		//	glPopMatrix();
 		}
+
 	}
+	else{
+		
+	}
+	
+	if(cap == GL_DEPTH_TEST)
+		drawingGameScreen = true;
 	if(GetAsyncKeyState(VK_END)&1){
 		draw = !draw;
 		draw_overlay = !draw_overlay;
@@ -614,26 +627,29 @@ void sys_glEnable (GLenum cap)
 		dataDisplay++;
 		dataDisplay = dataDisplay % 4; //display options for the debugging. 
 	}
+	if(GetAsyncKeyState(VK_NEXT)&1)
+		logging = !logging;
+		
 	(*orig_glEnable) (cap);
 }
 
 void sys_glPushMatrix (void)
 {
-		if(logging)
+	if(logging)
 		add_log("glPushMatrix");
 	(*orig_glPushMatrix) ();
 }
 
 void sys_wglSwapBuffers(HDC hDC)
 {
-			if(logging)
+	if(logging)
 		add_log("wglSwapBuffers");
 	(*orig_wglSwapBuffers) (hDC);
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)
 {
-				if(logging)
+	if(logging)
 		add_log("BindTextureEXT %d %d",target,texture);
 	orig_BindTextureEXT(target,texture);
 }
@@ -656,28 +672,28 @@ void sys_glBegin (GLenum mode)
 void sys_glBitmap (GLsizei width,  GLsizei height,  GLfloat xorig,  GLfloat yorig,  GLfloat xmove,  GLfloat ymove,  const GLubyte *bitmap)
 {
 	if(logging)
-	add_log("glBitmap"); // need to add vars was lazy;
+		add_log("glBitmap"); // need to add vars was lazy;
 	(*orig_glBitmap) (width, height, xorig, yorig, xmove, ymove, bitmap);
 }
 
 void sys_glBlendFunc (GLenum sfactor,  GLenum dfactor)
 {
-		if(logging)
-	add_log("glBlendFunc"); // need to add vars was lazy;
+	if(logging)
+		add_log("glBlendFunc"); // need to add vars was lazy;
 	(*orig_glBlendFunc) (sfactor, dfactor);
 }
 
 void sys_glClear (GLbitfield mask)
 {
-			if(logging)
-	add_log("glClear"); // need to add vars was lazy;
+	if(logging)
+		add_log("glClear"); // need to add vars was lazy;
 	(*orig_glClear)(mask);
 }
 
 void sys_glClearAccum (GLfloat red,  GLfloat green,  GLfloat blue,  GLfloat alpha)
 {
-				if(logging)
-	add_log("glClearAccum"); // need to add vars was lazy;
+	if(logging)
+		add_log("glClearAccum"); // need to add vars was lazy;
 	(*orig_glClearAccum) (red, green, blue, alpha);
 }
 
@@ -762,6 +778,8 @@ void sys_glDisable (GLenum cap)
 {
 	if(logging)
 		add_log("glDisable %s",GLenumToString(cap)); // need to add vars was lazy;
+	if(cap == GL_DEPTH_TEST)
+		drawingGameScreen = false;
 	(*orig_glDisable) (cap);
 }
 
@@ -928,29 +946,31 @@ BOOL __stdcall DllMain (HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
 {
 	switch(fdwReason)
 	{
-		case DLL_PROCESS_ATTACH:
-			DisableThreadLibraryCalls (hOriginalDll);
-			CreateSharedMemory();
-			return Init();
+	case DLL_PROCESS_ATTACH:
+		DisableThreadLibraryCalls (hOriginalDll);
+		CreateSharedMemory();
+		return Init();
 
-		case DLL_PROCESS_DETACH:
-			if ( hOriginalDll != NULL )
-			{
-				FreeLibrary(hOriginalDll);
-				hOriginalDll = NULL;
-			}
-			break;
+	case DLL_PROCESS_DETACH:
+		if ( hOriginalDll != NULL )
+		{
+			FreeLibrary(hOriginalDll);
+			hOriginalDll = NULL;
+		}
+		break;
 	}
 	return TRUE;
 }
 #pragma warning(default:4100)
 
-
+bool isLogging(){
+	return logging;
+}
 void __cdecl add_log (const char * fmt, ...)
 {
 	va_list va_alist;
 	char logbuf[256] = "";
-    FILE * fp;
+	FILE * fp;
 
 	va_start (va_alist, fmt);
 	_vsnprintf (logbuf+strlen(logbuf), sizeof(logbuf) - strlen(logbuf), fmt, va_alist);
