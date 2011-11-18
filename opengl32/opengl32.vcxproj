@@ -45,6 +45,7 @@
       <ObjectFileName>.\Release\</ObjectFileName>
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
       <CallingConvention>StdCall</CallingConvention>
+      <AdditionalIncludeDirectories>..\include\png++;..\include\libpng</AdditionalIncludeDirectories>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -68,8 +69,9 @@
       <ModuleDefinitionFile>.\opengl32.def</ModuleDefinitionFile>
       <OutputFile>.\Release\opengl32.dll</OutputFile>
       <ImportLibrary>.\Release\opengl32.lib</ImportLibrary>
-      <AdditionalDependencies>glu32.lib;opengl32.lib;glaux.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zdll.lib;libpng.lib;glu32.lib;opengl32.lib;glaux.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>DllMain</EntryPointSymbol>
+      <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

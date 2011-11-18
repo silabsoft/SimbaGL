@@ -1,0 +1,13 @@
+Library info:
+=========================
+zlib version is 1.2.5
+libpng version is 1.5.6
+png++ version is 0.25
+
+zlib1.dll must be placed either in C:\Windows\System32 (32-bit
+Windows) or C:\Windows\SysWOW64 (64-bit Windows).
+
+Some tiny tweaks were required to libpng and png++ to make
+everything compile properly. All png++ tests pass except for
+a few dealing with grayscale (though the output looks just
+fine) - Aftermath
