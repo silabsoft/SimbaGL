@@ -1,4 +1,4 @@
-{Aftermath [script version 2]:
+{Aftermath: v3 of script
   1. Update self with your CRC [used to detect if in combat]
   2. Replace NPC_COWS in main loop with array of what you want to attack - use
      NPC_CHICKEN or make your own [it occurs twice - once in the loop condition
@@ -6,20 +6,29 @@
   3. Script terminates if RuneScape is not visible or if we are not logged in.
   4. Has some token anti-ban: occasionally makes random mouse movements or
      picks up mouse [see Idle method].
-  5. Possibly handles some random events - let me know.
+  5. Does not handle random events.
+  6. Does not collect items, though has some code toward that end around.
+     Could easily be made to collect stackables, though since I'm training on
+     cows, there's no point.
 }
 
 program ChickenFucker;
 {$Loadlib SimbaInterception}
+{$Loadlib SimbaBeep}
+{.include srl/srl/skill/prayer.scar}
 {.include srl/srl.scar}
 
 const
-  self = 3485985718;    // Your character's model - update this.
+  self = 4077968595;    // Your character's model - update this.
 var
   NPC_CHICKEN: array[0..0] of Integer;
   NPC_COWS: array[0..2] of Integer;
   x, y, i : Integer;
   HPBarGreen : Integer;
+  BONES: array[0..0] of Integer;
+  FEATHERS: array[0..0] of Integer;
+  DTM_BONES: Integer;
+  DTM_INV_BONES: Integer;
 
 procedure LoadNPCs;
 begin
@@ -28,6 +37,13 @@ begin
   NPC_COWS[0] := 779656846;
   NPC_COWS[1] := 3606731925;
   NPC_COWS[2] := 3461859901;
+  BONES[0] := 2406257549;
+  FEATHERS[0] := 2926099281;
+  DTM_BONES := DTMFromString('mrAAAAHic42BgYDABYmMg1gdiRShmAmIWBghgh7I5gZgNiJmhbBj4P8EBAx/bMRWOCQFGAhgGAPAVEFk=');
+  DTM_INV_BONES :=
+  DTMFromString('mOwIAAHick2ZgYBAAYlEglgBiGSAWBGIhIBaDiskBsQIQK0FpkBpxqDouIOYAYjYgZoWy+aF6JaGYF4j5oGYKQPXBMMgcEag8F9QcmFoJqH5pKJaCulMAqpYdaicblM0HxdxQ+YaqKiDJxNDa0MCwavFihoKcbIb2pkaGlro6hil9vQweDiZg7OViBWcTi0HmgjDIHJB59ASMdMR4AAAV2B0i');
+
+
 end;
 
 {Aftermath: Print a message and terminate the script.}
@@ -63,6 +79,41 @@ begin
   end;
 end;
 
+{Aftermath: some work toward make it pick up items. The current best way I have is
+ 1) Find by checksum (use stride 24 to locate item on ground)
+ 2) Right click coords, then use DTM of the "Take Itemname" choice - warning,
+    make sure the DTM matches only what you want, it's hard to make it
+    unambiguous. Use DTM editor extension if using Simba.
+ 3) I suggest using this only for stackables until we get a reliable way of
+    dealing with inventory items. Let's see what we can figure out on the GL side,
+    and we can fall back to Simba if necessary.}
+function HandleItems: Boolean;
+  var x, y: Integer;
+begin
+  result := false;
+
+  {InterceptionGetModelPositionByChecksum(BONES[0], x, y);
+  if((x > 0) and (x < 518) and (y < 334) and (y > 0)) then
+  begin
+    Mouse(x, y, 1, 1, false);
+    if(FindDTM(DTM_BONES, x, y, 0, 0, 500, 350)) then
+    begin
+      Mouse(x, y, 1, 1, true);
+      result := true;
+    end;
+    Idle;
+
+  end else
+  begin
+    if(FindDTM(DTM_INV_BONES, x, y, 500, 200, 750, 600)) then
+    begin
+      Mouse(x, y, 3, 3, true);
+      result := true;
+    end;
+    Idle;
+  end;}
+end;
+
 begin
   SetupSRL;
   LoadNPCs;
@@ -70,8 +121,24 @@ begin
   Wait(2000);
 
   Disguise('ChickenFucker');
-  // InterceptionSetOverlay(true);
+  InterceptionSetOverlay(false);
   // InterceptionSetDebug(true);
+
+  //repeat
+  // InterceptionGetModelPositionByChecksum(3777832125    , x, y);
+  //if (x > 0) then
+ // begin
+  //MessageBeep(BEEP_ERROR);
+ // x := -1;
+
+ // end else begin
+//MessageBeep(BEEP_WARNING);
+ // end;
+
+////  wait(250);
+ // until false;
+
+  //MessageBeep(BEEP_OK);
 
   MouseSpeed := RandomRange(14, 18);
 
@@ -84,7 +151,7 @@ begin
 
     if not InCombat then
     begin
-      FindNonInventoryRandoms;
+      repeat until not HandleItems;
       for i := 0 to Length(NPC_COWS) - 1 do
       begin
         InterceptionGetModelPositionByChecksum(NPC_COWS[i], x, y);

@@ -406,6 +406,7 @@ void sys_glCallList (GLuint list)
 
 void sys_glCallLists (GLsizei n,  GLenum type,  const GLvoid *lists)
 {
+
 	(*orig_glCallLists) (n, type, lists);
 }
 
@@ -2037,6 +2038,8 @@ __declspec(naked) void sys_wglUseFontOutlinesW(void)
 
 BOOL Init (void)
 {
+
+
 	if ( !hOriginalDll )
 	{
 		char sysdir[MAX_PATH];

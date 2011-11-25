@@ -1,26 +1,61 @@
-/*
-* Game-Deception Blank Wrapper v2
-* Copyright (c) Crusader 2002
-*/
-
-/*
-* Useful ogl functions for half-life including hooked extensions
-*/
+#include <time.h>
+#include <vector>
+using namespace std;
 
 #include "opengl32.h"
 #include "uifunction.h"
-#include <vector>
-#include <time.h>
-using namespace std;
+
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
+
 bool drawing_model;
 bool draw = false;
 bool draw_overlay = false;
 bool drawingGameScreen;
+bool resizeableClient = false;
+bool logging = false;
+
+/* Aftermath: stride 24 is used to draw items on the ground
+  (along with a bunch of other miscelannea). [I was using the fixed-size
+  client.] */
 unsigned int draw_stride = 12;
 unsigned int count = 0;
-bool resizeableClient = false;
-bool logging;
+
+struct Model;
+/* Aftermath: New model-finding implementation.
+ * currentModels: Models that are drawn in the current frame.
+ * newModels: Models that are to be drawn in the next frame.
+ * When the frame is switched, currentModels is set to point to newModels
+ * and the old list is destroyed.
+ */
+vector<Model *> *currentModels = NULL;
+vector<Model *> *newModels = NULL;
+
+/* Aftermath: Regarding synchronization - whenever modifying either the
+ * currentModels or newModels pointer to a vector<Model *>, any of the
+ * elements therein, or accessing any element pointed to by any pointers
+ * of the vector [this is the one that is sometimes subtle], you have to
+ * start the accessing code with EnterCriticalSection(csXXXXModels) and
+ * leave the accessing code with LeaveCriticalSection(csXXXXModels). If
+ * the code modifies both, you MUST enter current, and then new, and leave
+ * new, and then current. This MUST be done in this order - if done in the
+ * wrong order, it will lead to deadlock, and if not done at all, it will
+ * lead to memory access violations.
+ *
+ * Any member variables of any structs passed to Simba fall out of our control
+ * unless we want cross-thread/process application synchroninzation (and no,
+ * we don't want to deal with that), so never modify any variable passed by
+ * reference in Simba code [a better statement would be NEVER PASS ANY VALUE
+ * BY REFERENCE TO SIMBA, but we have to at least until we create data types
+ * to pass to Simba.
+ *
+ * Also, speaking of Simba, it's useful for now for clicking stuff, but
+ * I want to cut it out of the way completely eventually.
+ */
+CRITICAL_SECTION csCurrentModels;
+CRITICAL_SECTION csNewModels;
+
+vector<Model> models;
+
 struct Model
 {
 	GLfloat x;				//x,y,z coords
@@ -35,11 +70,12 @@ struct Model
 	bool firstFirst;
 };
 
-vector<Model> models;
+// vector<Model> models;
 
 GLuint lastBuffer = 0;
 
 //vector<unsigned int> bufferCRC;
+
 unsigned int bufferCRC[50000];
 
 HDC				hDC;
@@ -100,11 +136,48 @@ void CreateSharedMemory()
 
 void ExecuteCommands()
 { //pCommands[2] is going to be a length indicator when I get to figure out how to get array's passed from pascal to C++
+
 	if(pCommands[1] == 1)		//if command status "not done"
 	{
 		if(pCommands[0] == 1)	//if command = FindModelByID
 		{
-			for (int i = 0; i < models.size(); i++)
+			const int req_id = pCommands[3];
+			vector<Model *> matching;
+
+			EnterCriticalSection(&csCurrentModels);
+			EnterCriticalSection(&csNewModels);
+
+			/* Aftermath: I made a modificati on to randomly choose a satisfactory model
+			 * satisfying the CRC. This way, if the first one happens to be fenced off
+			 * or summat, the script can keep going.
+			 */
+			if(currentModels) {
+				vector<Model *>::iterator it = currentModels->begin();
+				for(; it != currentModels->end(); it++) {
+					if((*it)->id == req_id) {
+						matching.push_back(*it);
+					}
+				}
+
+				if(matching.size()) {
+					// MessageBoxA(NULL, "HIA", "HI", 0);
+					const int selectedId = rand() % matching.size();
+					const Model * const selectedModel = matching[selectedId];
+					pCommands[3] = selectedModel->x_s;
+					pCommands[4] = selectedModel->y_s;
+					pCommands[1] = 2;
+
+					char * store = (char *) malloc(sizeof(char) * 200);
+					itoa(req_id, store, 10);
+					// MessageBoxA(NULL, store, "SEARCHED THROUGH MODELES:", 0);
+					//MessageBoxA(NULL, store, "FOUND", 0);
+				} else {
+					//MessageBoxA(NULL, "SAD", "NESS", 0);
+				}
+			}
+			LeaveCriticalSection(&csNewModels);
+			LeaveCriticalSection(&csCurrentModels);
+			/*for (int i = 0; i < models.size(); i++)
 			{
 				if (models[i].id == pCommands[3])
 				{
@@ -112,7 +185,7 @@ void ExecuteCommands()
 					pCommands[4] = models[i].y_s;	//ycoord
 					pCommands[1] = 2;	//set command status to response
 				}
-			}
+			}*/
 		}
 		if(pCommands[0] == 2){ //set overlay
 			draw_overlay = (pCommands[3] == 1? true : false) ;
@@ -230,22 +303,28 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 	drawing_model = true;
 	if(size == 3 && type == GL_FLOAT && pointer != 0)		//Model model
 	{
+		// Aftermath: modified to allocate on heap so
 
-		Model newModel;
-		GLfloat* temp;
-		int r = 0;
-		if(!draw_overlay) //we only choose random vert when we are not displaying debug for ease of reading purposes.
-			r = rand() % 100; //although I do not have a way of grabbing vertex count I am asuming every model has atleast 100 verts.
-		temp = (GLfloat*)((DWORD)pointer+(r*12));
-		newModel.x = *temp; //outputs 0?
-		temp = (GLfloat*)((DWORD)pointer+(4+(r*12)));
-		newModel.y = *temp;
-		temp = (GLfloat*)((DWORD)pointer+(8+(r*12)));
-		newModel.z = *temp; // outputs 0?
+		Model *newModel = new Model;
+		GLfloat *temp;
 
-		newModel.stride = stride;
+		bool random_vertex = !draw_overlay;
+		int model_vertex = 0;
 
-		models.push_back(newModel);
+		//Silab: we only choose random vert when we are not displaying debug for ease of reading purposes.
+		if(random_vertex) {
+			//Silab: although I do not have a way of grabbing vertex count I am asuming every model has atleast 100 verts.
+			model_vertex = rand() % 100;
+		}
+
+		// Aftermath: generalized to use stride instead of 12
+		int vertex_offset = model_vertex * stride;
+		newModel->x = (DWORD) pointer + vertex_offset;
+		newModel->y = (DWORD) pointer + 4 * vertex_offset;
+		newModel->z = (DWORD) pointer + 8 * vertex_offset;
+		newModel->stride = stride;
+
+		models.push_back(*newModel);
 	}
 	else
 	{
@@ -313,11 +392,21 @@ void sys_glPopMatrix (void)
 			Viewport[3] = 333;
 		}
 
+
+
 		if(gluProject(models.back().x, models.back().y, models.back().z, ModelView, ProjView, Viewport, &View2D[0], &View2D[1], &View2D[2]) == GL_TRUE)
 		{
 			models.back().x_s = (unsigned int)View2D[0];
 			models.back().y_s = (unsigned int)Viewport[3]-(unsigned int)View2D[1];
 		}
+		
+		EnterCriticalSection(&csNewModels);
+		if(newModels) {
+			Model *copy = new Model;
+			*copy = models.back();
+			newModels->push_back(copy);
+		}
+		LeaveCriticalSection(&csNewModels);
 	}
 
 	drawing_model = false;
@@ -560,46 +649,47 @@ void sys_glEnable (GLenum cap)
 		add_log("glEnable %s (%d)",GLenumToString(cap),cap);
 	}
 	//wtf commit!
-	Model drawModel;
 	if(!drawingGameScreen){
 			ExecuteCommands();												//check if command needs to be run every frame
-		while (!models.empty())
-		{
-			drawModel = models.back();
-			models.pop_back();	
 
-		//	glPushMatrix();
-		//	glLoadIdentity();
-		//	orig_glRotatef(0.3f,0.f,0.4f,0.f);
-		//	orig_glEnableClientState( GL_VERTEX_ARRAY );		
-		//	orig_glDisable(GL_QUADS);
+			/* Aftermath: Drawing is now extremely slow when overlay is enabled - 
+			   I'll look into it sometime.*/
+			EnterCriticalSection(&csCurrentModels);
 			orig_glDisable(GL_SCISSOR_TEST);
-			if(draw_overlay && draw_stride == drawModel.stride || draw_overlay && drawAll){
-				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-				switch(dataDisplay){
-				case 0:
-					glPrint(drawModel.x_s,drawModel.y_s,"C: %u",drawModel.id);
-					break;
-				case 1:
-					glPrint(drawModel.x_s,drawModel.y_s,"T: %u",drawModel.triangles);
-					break;
-				case 2:
-					glPrint(drawModel.x_s,drawModel.y_s,"Xs: %d Ys: %d",drawModel.x_s,drawModel.y_s);
-					break;
-				case 3:
-					glPrint(drawModel.x_s,drawModel.y_s,"X: %f Y: %f Z: %f",drawModel.x,drawModel.y,drawModel.z);
-					break;
+			if(currentModels) {
+				vector<Model *>::iterator it;
+				for(it = currentModels->begin(); it != currentModels->end(); it++) {
+					Model *drawModel = *it;
+				
+					if(draw_overlay && draw_stride == drawModel->stride || draw_overlay && drawAll) {
+						orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+						switch(dataDisplay){
+							case 0:
+							glPrint(drawModel->x_s,drawModel->y_s,"C: %u",drawModel->id);
+							break;
+							case 1:
+							glPrint(drawModel->x_s,drawModel->y_s,"T: %u",drawModel->triangles);
+							break;
+							case 2:
+							glPrint(drawModel->x_s,drawModel->y_s,"Xs: %d Ys: %d",drawModel->x_s,drawModel->y_s);
+							break;
+							case 3:
+							glPrint(drawModel->x_s,drawModel->y_s,"X: %f Y: %f Z: %f",drawModel->x,drawModel->y,drawModel->z);
+							break;
+						}
+					}
 				}
+
+				/* Aftermath: If we leave GL_SCISSORS_TEST disabled, we get funky stuff like
+				 * the minimap being visible outside of its area. */
+				orig_glEnable(GL_SCISSOR_TEST);
 			}
-		//	orig_glEnable(GL_SCISSOR_TEST);
+			LeaveCriticalSection(&csCurrentModels);
+
 		//	orig_glEnable(GL_QUADS);
 		//	glPopMatrix();
 		}
 
-	}
-	else{
-		
-	}
 	
 	if(cap == GL_DEPTH_TEST)
 		drawingGameScreen = true;
@@ -607,6 +697,8 @@ void sys_glEnable (GLenum cap)
 		draw = !draw;
 		draw_overlay = !draw_overlay;
 	}
+
+	/* Aftermath: I thought this was pretty cool :D */
 	if(GetAsyncKeyState(VK_F1)&1) 
 		draw_stride = 12;
 	if(GetAsyncKeyState(VK_F2)&1)
@@ -644,7 +736,28 @@ void sys_wglSwapBuffers(HDC hDC)
 {
 	if(logging)
 		add_log("wglSwapBuffers");
+
+	
+	EnterCriticalSection(&csCurrentModels);
+	EnterCriticalSection(&csNewModels);
+	if(newModels) {
+		currentModels = newModels;
+
+		vector<Model *>::iterator it = newModels->begin();
+
+		/* Aftermath: we would be able to save a lot of memory if we stopped returning
+		   values by reference; this way, I can't delete models without being worried
+		   that Simba is still using their functions, causing a crash. */
+		for(; it != newModels->end(); it++) {
+		//	delete *it;
+		}
+		delete newModels;
+		newModels = new vector<Model *>();
+	}
+	LeaveCriticalSection(&csNewModels);
+	LeaveCriticalSection(&csCurrentModels);
 	(*orig_wglSwapBuffers) (hDC);
+	
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)
@@ -941,26 +1054,7 @@ PROC sys_wglGetProcAddress(LPCSTR ProcName)
 	return orig_wglGetProcAddress(ProcName);
 }
 
-#pragma warning(disable:4100)
-BOOL __stdcall DllMain (HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
-{
-	switch(fdwReason)
-	{
-	case DLL_PROCESS_ATTACH:
-		DisableThreadLibraryCalls (hOriginalDll);
-		CreateSharedMemory();
-		return Init();
 
-	case DLL_PROCESS_DETACH:
-		if ( hOriginalDll != NULL )
-		{
-			FreeLibrary(hOriginalDll);
-			hOriginalDll = NULL;
-		}
-		break;
-	}
-	return TRUE;
-}
 #pragma warning(default:4100)
 
 bool isLogging(){
@@ -981,4 +1075,32 @@ void __cdecl add_log (const char * fmt, ...)
 		fprintf ( fp, "%s\n", logbuf );
 		fclose (fp);
 	}
+}
+
+
+#pragma warning(disable:4100)
+BOOL __stdcall DllMain (HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
+{
+	switch(fdwReason)
+	{
+	case DLL_PROCESS_ATTACH:
+		InitializeCriticalSection(&csNewModels);
+		InitializeCriticalSection(&csCurrentModels);
+		EnterCriticalSection(&csNewModels);
+		newModels = new vector<Model *>();
+		LeaveCriticalSection(&csNewModels);
+
+		DisableThreadLibraryCalls (hOriginalDll);
+		CreateSharedMemory();
+		return Init();
+
+	case DLL_PROCESS_DETACH:
+		if ( hOriginalDll != NULL )
+		{
+			FreeLibrary(hOriginalDll);
+			hOriginalDll = NULL;
+		}
+		break;
+	}
+	return TRUE;
 }

@@ -7,26 +7,20 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "opengl32", "opengl32\opengl32.vcxproj", "{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pngtest", "pngtest\pngtest.vcxproj", "{F18ACCB5-598C-468A-8B51-3109C6491105}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
 		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A8919319-A7C0-330A-C688-53601954767B}.Debug|Win32.ActiveCfg = Release|Win32
-		{A8919319-A7C0-330A-C688-53601954767B}.Debug|Win32.Build.0 = Release|Win32
+		{A8919319-A7C0-330A-C688-53601954767B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A8919319-A7C0-330A-C688-53601954767B}.Debug|Win32.Build.0 = Debug|Win32
 		{A8919319-A7C0-330A-C688-53601954767B}.Release|Win32.ActiveCfg = Release|Win32
 		{A8919319-A7C0-330A-C688-53601954767B}.Release|Win32.Build.0 = Release|Win32
-		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Debug|Win32.ActiveCfg = Release|Win32
-		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Debug|Win32.Build.0 = Release|Win32
+		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Debug|Win32.Build.0 = Debug|Win32
 		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Release|Win32.ActiveCfg = Release|Win32
 		{BF6C45BC-148C-915B-9B84-3BAB2C156BCD}.Release|Win32.Build.0 = Release|Win32
-		{F18ACCB5-598C-468A-8B51-3109C6491105}.Debug|Win32.ActiveCfg = Debug|Win32
-		{F18ACCB5-598C-468A-8B51-3109C6491105}.Debug|Win32.Build.0 = Debug|Win32
-		{F18ACCB5-598C-468A-8B51-3109C6491105}.Release|Win32.ActiveCfg = Release|Win32
-		{F18ACCB5-598C-468A-8B51-3109C6491105}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
