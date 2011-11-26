@@ -26,9 +26,14 @@ struct Model;
  * newModels: Models that are to be drawn in the next frame.
  * When the frame is switched, currentModels is set to point to newModels
  * and the old list is destroyed.
+ * simbaModels: introduced to mitigate the huge memory leakage issue until
+ * we switch to a proper way of returning data. Models that are to be returned
+ * to Simba will be copied and then referenced from the simbaModels, so that
+ * old models that are not needed by Simba can be destroyed.
  */
 vector<Model *> *currentModels = NULL;
 vector<Model *> *newModels = NULL;
+vector<Model *> simbaModels;
 
 /* Aftermath: Regarding synchronization - whenever modifying either the
  * currentModels or newModels pointer to a vector<Model *>, any of the
@@ -162,9 +167,21 @@ void ExecuteCommands()
 				if(matching.size()) {
 					// MessageBoxA(NULL, "HIA", "HI", 0);
 					const int selectedId = rand() % matching.size();
-					const Model * const selectedModel = matching[selectedId];
-					pCommands[3] = selectedModel->x_s;
-					pCommands[4] = selectedModel->y_s;
+
+					Model *copy = new Model;
+
+					/* Aftermath: this scope is here to avoid using any of selectedModel's
+					 * fields, which would cause an access violation when it is deleted.
+					 */
+					{
+						const Model * const selectedModel = matching[selectedId];
+						*copy = *selectedModel;
+						simbaModels.push_back(copy);
+					}
+
+
+					pCommands[3] = copy->x_s;
+					pCommands[4] = copy->y_s;
 					pCommands[1] = 2;
 
 					char * store = (char *) malloc(sizeof(char) * 200);
@@ -742,24 +759,33 @@ void sys_wglSwapBuffers(HDC hDC)
 	
 	EnterCriticalSection(&csCurrentModels);
 	EnterCriticalSection(&csNewModels);
-	if(newModels) {
-		currentModels = newModels;
 
-		vector<Model *>::iterator it = newModels->begin();
+	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
+	(*orig_wglSwapBuffers) (hDC);
+
+	if(newModels) {
+		if(currentModels) {
+			vector<Model *>::iterator itOld = currentModels->begin();
+			for(; itOld != currentModels->end(); itOld++) {
+				delete *itOld;
+			}
+			delete currentModels;
+		}
+
+		currentModels = newModels;
+		newModels = new vector<Model *>();
 
 		/* Aftermath: we would be able to save a lot of memory if we stopped returning
-		   values by reference; this way, I can't delete models without being worried
-		   that Simba is still using their functions, causing a crash. */
-		for(; it != newModels->end(); it++) {
-		//	delete *it;
-		}
-		delete newModels;
-		newModels = new vector<Model *>();
+		   values by reference; the current way, I can't delete models without being worried
+		   that Simba is still using their functions, causing a crash. 
+		   
+		   Update: I've implemented a short term workaround to mitigate this - all models
+		   returned to Simba are copied before being given to Simba, so that all other
+		   models can be deleted. We should be mindful of memory - it's easy to run out of
+		   space, causing Java to crash. */
 	}
 	LeaveCriticalSection(&csNewModels);
-	LeaveCriticalSection(&csCurrentModels);
-	(*orig_wglSwapBuffers) (hDC);
-	
+	LeaveCriticalSection(&csCurrentModels);	
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)
