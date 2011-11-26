@@ -402,9 +402,11 @@ void sys_glPopMatrix (void)
 		
 		EnterCriticalSection(&csNewModels);
 		if(newModels) {
-			Model *copy = new Model;
-			*copy = models.back();
-			newModels->push_back(copy);
+			if(models.size()) {
+				Model *copy = new Model;
+				*copy = models.back();
+				newModels->push_back(copy);
+			}
 		}
 		LeaveCriticalSection(&csNewModels);
 	}
