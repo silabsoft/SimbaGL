@@ -676,45 +676,13 @@ void sys_glEnable (GLenum cap)
 	}
 	//wtf commit!
 	if(!drawingGameScreen){
+		/* Aftermath: I moved the overlay-drawing code down to swapbuffers (this is where
+		 * anything we draw should go, as it's called when the application is done its own processing
+		 * and wants to draw to screen.*/
 			ExecuteCommands();												//check if command needs to be run every frame
-
-			/* Aftermath: Drawing is now extremely slow when overlay is enabled - 
-			   I'll look into it sometime.*/
-			EnterCriticalSection(&csCurrentModels);
-			orig_glDisable(GL_SCISSOR_TEST);
-			if(currentModels) {
-				vector<Model *>::iterator it;
-				for(it = currentModels->begin(); it != currentModels->end(); it++) {
-					Model *drawModel = *it;
-				
-					if(draw_overlay && draw_stride == drawModel->stride || draw_overlay && drawAll) {
-						orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-						switch(dataDisplay){
-							case 0:
-							glPrint(drawModel->x_s,drawModel->y_s,"C: %u",drawModel->id);
-							break;
-							case 1:
-							glPrint(drawModel->x_s,drawModel->y_s,"T: %u",drawModel->triangles);
-							break;
-							case 2:
-							glPrint(drawModel->x_s,drawModel->y_s,"Xs: %d Ys: %d",drawModel->x_s,drawModel->y_s);
-							break;
-							case 3:
-							glPrint(drawModel->x_s,drawModel->y_s,"X: %f Y: %f Z: %f",drawModel->x,drawModel->y,drawModel->z);
-							break;
-						}
-					}
-				}
-
-				/* Aftermath: If we leave GL_SCISSORS_TEST disabled, we get funky stuff like
-				 * the minimap being visible outside of its area. */
-				orig_glEnable(GL_SCISSOR_TEST);
-			}
-			LeaveCriticalSection(&csCurrentModels);
-
 		//	orig_glEnable(GL_QUADS);
 		//	glPopMatrix();
-		}
+	}
 
 	
 	if(cap == GL_DEPTH_TEST)
@@ -767,8 +735,39 @@ void sys_wglSwapBuffers(HDC hDC)
 	EnterCriticalSection(&csCurrentModels);
 	EnterCriticalSection(&csNewModels);
 
+	/* START OVERLAY*/
+	/* Aftermath: Moved overlay here so it is done only once per frame. MASSIVE SPEEDUP.
+	 * I removed the disabling GL_SCISSORS_TEST since that causes glitchy graphics. */
+	if(currentModels) {
+		vector<Model *>::iterator it;
+		for(it = currentModels->begin(); it != currentModels->end(); it++) {
+			Model *drawModel = *it;
+				
+			if(draw_overlay && draw_stride == drawModel->stride || draw_overlay && drawAll) {
+				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+				switch(dataDisplay){
+					case 0:
+					glPrint(drawModel->x_s,drawModel->y_s,"C: %u",drawModel->id);
+					break;
+					case 1:
+					glPrint(drawModel->x_s,drawModel->y_s,"T: %u",drawModel->triangles);
+					break;
+					case 2:
+					glPrint(drawModel->x_s,drawModel->y_s,"Xs: %d Ys: %d",drawModel->x_s,drawModel->y_s);
+					break;
+					case 3:
+					glPrint(drawModel->x_s,drawModel->y_s,"X: %f Y: %f Z: %f",drawModel->x,drawModel->y,drawModel->z);
+					break;
+				}
+			}
+		}
+	}
+	/* END OVERLAY */
+
 	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
 	(*orig_wglSwapBuffers) (hDC);
+
+	
 
 	if(newModels) {
 		if(currentModels) {
