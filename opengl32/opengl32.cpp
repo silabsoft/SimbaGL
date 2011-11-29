@@ -10,7 +10,6 @@ using namespace std;
 bool drawing_model;
 bool draw = false;
 bool draw_overlay = false;
-bool drawingGameScreen;
 bool resizeableClient = false;
 bool logging = false;
 
@@ -26,14 +25,9 @@ struct Model;
  * newModels: Models that are to be drawn in the next frame.
  * When the frame is switched, currentModels is set to point to newModels
  * and the old list is destroyed.
- * simbaModels: introduced to mitigate the huge memory leakage issue until
- * we switch to a proper way of returning data. Models that are to be returned
- * to Simba will be copied and then referenced from the simbaModels, so that
- * old models that are not needed by Simba can be destroyed.
  */
 vector<Model *> *currentModels = NULL;
 vector<Model *> *newModels = NULL;
-vector<Model *> simbaModels;
 
 /* Aftermath: Regarding synchronization - whenever modifying either the
  * currentModels or newModels pointer to a vector<Model *>, any of the
@@ -46,15 +40,6 @@ vector<Model *> simbaModels;
  * wrong order, it will lead to deadlock, and if not done at all, it will
  * lead to memory access violations.
  *
- * Any member variables of any structs passed to Simba fall out of our control
- * unless we want cross-thread/process application synchroninzation (and no,
- * we don't want to deal with that), so never modify any variable passed by
- * reference in Simba code [a better statement would be NEVER PASS ANY VALUE
- * BY REFERENCE TO SIMBA, but we have to at least until we create data types
- * to pass to Simba.
- *
- * Also, speaking of Simba, it's useful for now for clicking stuff, but
- * I want to cut it out of the way completely eventually.
  */
 CRITICAL_SECTION csCurrentModels;
 CRITICAL_SECTION csNewModels;
@@ -75,7 +60,8 @@ struct Model
 	bool firstFirst;
 };
 
-/* Aftermath: The C-side counterpart to the TModel provided to SCAR/Simba. */
+/* Aftermath: The C-side counterpart to the TModel provided to SCAR/Simba.
+ * Note: Not actually in use, just something I was toying around with. */
 struct TModel
 {
 	unsigned long crc;
@@ -175,20 +161,20 @@ void ExecuteCommands()
 					// MessageBoxA(NULL, "HIA", "HI", 0);
 					const int selectedId = rand() % matching.size();
 
-					Model *copy = new Model;
+//					Model *copy = new Model;
 
 					/* Aftermath: this scope is here to avoid using any of selectedModel's
 					 * fields, which would cause an access violation when it is deleted.
 					 */
-					{
+//					{
 						const Model * const selectedModel = matching[selectedId];
-						*copy = *selectedModel;
-						simbaModels.push_back(copy);
-					}
+//						*copy = *selectedModel;
+//						simbaModels.push_back(copy);
+//					}
 
 
-					pCommands[3] = copy->x_s;
-					pCommands[4] = copy->y_s;
+					pCommands[3] = selectedModel->x_s;
+					pCommands[4] = selectedModel->y_s;
 					pCommands[1] = 2;
 
 					char * store = (char *) malloc(sizeof(char) * 200);
@@ -674,19 +660,25 @@ void sys_glEnable (GLenum cap)
 	if(logging){
 		add_log("glEnable %s (%d)",GLenumToString(cap),cap);
 	}
-	//wtf commit!
-	if(!drawingGameScreen){
-		/* Aftermath: I moved the overlay-drawing code down to swapbuffers (this is where
-		 * anything we draw should go, as it's called when the application is done its own processing
-		 * and wants to draw to screen.*/
-			ExecuteCommands();												//check if command needs to be run every frame
-		//	orig_glEnable(GL_QUADS);
-		//	glPopMatrix();
-	}
 
-	
-	if(cap == GL_DEPTH_TEST)
-		drawingGameScreen = true;
+	(*orig_glEnable) (cap);
+}
+
+void sys_glPushMatrix (void)
+{
+	if(logging)
+		add_log("glPushMatrix");
+	(*orig_glPushMatrix) ();
+}
+
+void sys_wglSwapBuffers(HDC hDC)
+{
+	/* START MOVED */
+	/* Aftermath: I moved all the stuff we need to do down to swapbuffers, as this is called
+	 * when the application has finished its graphics process. This way, we only process once
+	 * a frame. This will be much less CPU-intensive. */
+	ExecuteCommands();
+
 	if(GetAsyncKeyState(VK_END)&1){
 		draw = !draw;
 		draw_overlay = !draw_overlay;
@@ -715,19 +707,8 @@ void sys_glEnable (GLenum cap)
 	}
 	if(GetAsyncKeyState(VK_NEXT)&1)
 		logging = !logging;
-		
-	(*orig_glEnable) (cap);
-}
+	/* END MOVED */	
 
-void sys_glPushMatrix (void)
-{
-	if(logging)
-		add_log("glPushMatrix");
-	(*orig_glPushMatrix) ();
-}
-
-void sys_wglSwapBuffers(HDC hDC)
-{
 	if(logging)
 		add_log("wglSwapBuffers");
 
@@ -925,8 +906,7 @@ void sys_glDisable (GLenum cap)
 {
 	if(logging)
 		add_log("glDisable %s",GLenumToString(cap)); // need to add vars was lazy;
-	if(cap == GL_DEPTH_TEST)
-		drawingGameScreen = false;
+
 	(*orig_glDisable) (cap);
 }
 
