@@ -75,6 +75,13 @@ struct Model
 	bool firstFirst;
 };
 
+/* Aftermath: The C-side counterpart to the TModel provided to SCAR/Simba. */
+struct TModel
+{
+	unsigned long crc;
+	unsigned short x, y;
+};
+
 // vector<Model> models;
 
 GLuint lastBuffer = 0;

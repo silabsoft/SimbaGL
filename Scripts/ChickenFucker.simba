@@ -1,8 +1,9 @@
-{Aftermath: v3 of script
+{Aftermath: v4 of script
+  -1: Updated for compatibility with changes to SimbaIntercept/opengl32
+  0. Don't ignore step 1 or script will do nothing.
   1. Update self with your CRC [used to detect if in combat]
-  2. Replace NPC_COWS in main loop with array of what you want to attack - use
-     NPC_CHICKEN or make your own [it occurs twice - once in the loop condition
-     and once in the CRC call].
+  2. Set NPC_TARGET [in LoadNPCs] to NPC_COWS or NPC_CHICKEN or
+  your own array of what to attack.
   3. Script terminates if RuneScape is not visible or if we are not logged in.
   4. Has some token anti-ban: occasionally makes random mouse movements or
      picks up mouse [see Idle method].
@@ -14,21 +15,21 @@
 
 program ChickenFucker;
 {$Loadlib SimbaInterception}
-{$Loadlib SimbaBeep}
-{.include srl/srl/skill/prayer.scar}
+//{.include srl/srl/skill/prayer.scar}
 {.include srl/srl.scar}
 
 const
-  self = 4077968595;    // Your character's model - update this.
+  self = 1038358596;    // Your character's model - update this.
 var
-  NPC_CHICKEN: array[0..0] of Integer;
-  NPC_COWS: array[0..2] of Integer;
+  NPC_CHICKEN: array[0..0] of LongWord;
+  NPC_COWS: array[0..2] of LongWord;
   x, y, i : Integer;
   HPBarGreen : Integer;
-  BONES: array[0..0] of Integer;
-  FEATHERS: array[0..0] of Integer;
+  BONES: array[0..0] of LongWord;
+  FEATHERS: array[0..0] of LongWord;
   DTM_BONES: Integer;
   DTM_INV_BONES: Integer;
+  NPC_TARGET: array of LongWord;
 
 procedure LoadNPCs;
 begin
@@ -42,7 +43,7 @@ begin
   DTM_BONES := DTMFromString('mrAAAAHic42BgYDABYmMg1gdiRShmAmIWBghgh7I5gZgNiJmhbBj4P8EBAx/bMRWOCQFGAhgGAPAVEFk=');
   DTM_INV_BONES :=
   DTMFromString('mOwIAAHick2ZgYBAAYlEglgBiGSAWBGIhIBaDiskBsQIQK0FpkBpxqDouIOYAYjYgZoWy+aF6JaGYF4j5oGYKQPXBMMgcEag8F9QcmFoJqH5pKJaCulMAqpYdaicblM0HxdxQ+YaqKiDJxNDa0MCwavFihoKcbIb2pkaGlro6hil9vQweDiZg7OViBWcTi0HmgjDIHJB59ASMdMR4AAAV2B0i');
-
+  NPC_TARGET := NPC_COWS;
 
 end;
 
@@ -61,21 +62,27 @@ function InCombat:Boolean;
   var selfX, selfY: Integer;
   var junkX, junkY: Integer;
 begin
-  InterceptionGetModelPositionByChecksum(self, selfX, selfY);
-  if (selfX > 0) then
+  if(InterceptionGetModelPositionByChecksum(selfX, selfY, self)) then
   begin
-    Result := FindBitmapIn(HPBarGreen, junkX, junkY, selfX - 30, selfY - 100, selfX + 30, selfY);
-  end else begin
-    Result := True;
+    if ((selfX > 30) and (selfY > 100)) then begin
+      Result := FindBitmapIn(HPBarGreen, junkX, junkY, selfX - 30, selfY - 100, selfX + 30, selfY);
+    end else begin
+      Result := True;
+    end;
   end;
+end;
+
+procedure WaitFlag;
+begin
+  repeat Wait(200) until not FlagPresent;
 end;
 
 procedure Idle;
 begin
-  Wait(2000 + random(500));
   case Random(20) of
     0: RandomMovement;
     1: PickUpMouse;
+    2 .. 20: Wait(2000 + random(500));
   end;
 end;
 
@@ -118,27 +125,9 @@ begin
   SetupSRL;
   LoadNPCs;
   ActivateClient;
-  Wait(2000);
+  Wait(500);
 
   Disguise('ChickenFucker');
-  InterceptionSetOverlay(false);
-  // InterceptionSetDebug(true);
-
-  //repeat
-  // InterceptionGetModelPositionByChecksum(3777832125    , x, y);
-  //if (x > 0) then
- // begin
-  //MessageBeep(BEEP_ERROR);
- // x := -1;
-
- // end else begin
-//MessageBeep(BEEP_WARNING);
- // end;
-
-////  wait(250);
- // until false;
-
-  //MessageBeep(BEEP_OK);
 
   MouseSpeed := RandomRange(14, 18);
 
@@ -152,19 +141,22 @@ begin
     if not InCombat then
     begin
       repeat until not HandleItems;
-      for i := 0 to Length(NPC_COWS) - 1 do
+      for i := 0 to Length(NPC_TARGET) - 1 do
       begin
-        InterceptionGetModelPositionByChecksum(NPC_COWS[i], x, y);
-
-        if((x > 0) and (x < 518) and (y < 334) and (y > 0)) then
+        if(InterceptionGetModelPositionByChecksum(x, y, NPC_TARGET[i])) then
         begin
-          Mouse(x, y, 1, 1, true);
-          Idle;
-          Break;
+          if((x > 2) and (y > 2) and (x < 516) and (y < 337)) then
+          begin
+            Mouse(x, y, 1, 1, true);
+            WaitFlag;
+            Idle;
+            Break;
+          end;
         end;
       end;
     end else
     begin
+      WaitFlag;
       Idle;
     end;
   until(false);

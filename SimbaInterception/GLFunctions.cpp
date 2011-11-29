@@ -50,19 +50,21 @@ void SetUsingResizeableClient(bool b){
 	arr[3] = b ? 1 : 0;
 	arr[1] = 1;
 }
-void GetModelPositionByChecksum(int id, int& x,int& y){
+
+bool GetModelPositionByChecksum(int &x, int &y, unsigned long id)
+{
 	DWORD * arr = requestSharedMemory();
 	arr[0] = 1;
 	arr[3] = id;
 	arr[1] = 1;
+
 	if(isGoingToCallBack()){
 		x = arr[3];
 		y = arr[4];
+		return true;
 	}
-	else{
-		x = -1;
-		y = -1;
-	}
+
+	return false;
 }
 void GetModelPositionByTriangleCount(int id, int& x,int& y){
 	DWORD * arr = requestSharedMemory();

@@ -11,8 +11,13 @@ static char* exports[] = {
 	(char*)"getViewport","function InterceptionGetViewport(var x,y,width,height : integer) : boolean;",
 	(char*)"getGLPosition","procedure InterceptionGetGLPosition(x,y : integer; var posX,posY,posZ : double);",
 	(char*)"SetUsingResizeableClient", (char*)"procedure InterceptionSetUsingResizeableClient(b: boolean);",
-	(char*)"GetModelPositionByChecksum", (char*)"procedure InterceptionGetModelPositionByChecksum(id :integer; var x,y : integer);",
-	(char*)"GetModelPositionByTriangleCount", (char*)"procedure InterceptionGetModelPositionByTriCount(triCount :integer; var x,y : integer);"
+
+	/* Aftermath: updated this function to 1) resturn a success boolean 2) use a LongWord to avoid overflow
+	 * 3) put x, y first to maintain uniformity with Simba/SCAR functions 4) properly use by-reference in Pascal
+	 * to avoid access violations (e.g. people passing in numbers instead of variables) */
+	(char *) "GetModelPositionByChecksum", (char *) "function InterceptionGetModelPositionByChecksum(var x, y: Integer; id: LongWord):Boolean;",
+	(char*)"GetModelPositionByTriangleCount", (char*)"procedure InterceptionGetModelPositionByTriCount(triCount :integer; var x,y : integer)",
+	// (char*)"TestRecordType", (char*)"procedure TestRecordType(rec: TModel)",
 };
 
 
@@ -39,7 +44,7 @@ long __stdcall GetFunctionInfo(int index, void*& address, char*& def) {
 }
 
 //Windows DLL entrypoint/exitpoint
-bool DllMain(HINSTANCE instance, int reason, void* checks) {
+bool WINAPI DllMain(HINSTANCE instance, int reason, void* checks) {
     switch (reason) {
         case DLL_PROCESS_ATTACH:
             dllinst = instance;
@@ -56,6 +61,54 @@ bool DllMain(HINSTANCE instance, int reason, void* checks) {
     return false;
 }
 
+/*
+ * Aftermath: will need to fix the leaks in this stuff later.
+ * This is useful for defining our custom types to use on the pascal side.
+ * from yakman
+ * http://villavu.com/forum/showthread.php?t=39677
+ * dest - passed by GetTypeInfo()
+ * src - what the string should contain, regular c string
+ */
+
+/*
+typedef struct delphi_string {
+	int ref;
+	int length;
+	char bytes[1];
+} delphi_string;
+
+void
+make_delphi_string(char** dest, char* src) {
+	
+	char* buffer = new char[256];
+
+	*dest = buffer + 8;
+	delphi_string* str = (delphi_string*)buffer;
+	str->ref = 255;
+	str->length = strlen(src);
+	strcpy(str->bytes, src);
+	str->bytes[str->length + 1] = 0; //double null
+}
+
+int __stdcall GetTypeCount(void) {
+	return 0;
+	//return 1;
+}
+
+int __stdcall GetTypeInfo(int x, char** type_name, char** type_def) {
+
+	switch(x) {
+		// Aftermath: add other types in other cases
+		case 0: {
+			make_delphi_string(type_name, "TModel");
+			make_delphi_string(type_def, "record CRC: Longword; x, y: Word; end;");
+				return x;
+		} break;
+	}
+	return -1;
+}
+// end yakman-related section */
+
 
 //sets the debug status
 void setDebug(bool d){
@@ -65,6 +118,14 @@ void setDebug(bool d){
 //returns debug status
 bool isDebug(){
 	return debug;
+}
+
+void __stdcall TestRecordType(void *test) {
+	unsigned long *crc = (unsigned long *) test;
+	unsigned short *x = (unsigned short *) (crc + 1);
+	unsigned short *y = x + 1;
+
+	wcout << "crc: " << *crc << "x: " << *x << "y: " << *y << endl;
 }
 
 void setOverlay(bool b){

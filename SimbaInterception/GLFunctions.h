@@ -3,5 +3,5 @@
 extern "C" bool getViewport( int&, int&, int&, int&);
 extern "C" void getGLPosition(int,int,double&,double&,double&);
 extern "C" void SetUsingResizeableClient(bool);
-extern "C" void GetModelPositionByChecksum(int,int&,int&);
+extern "C" bool GetModelPositionByChecksum(int &,int &, unsigned long);
 #endif	/* _SMART_H */
