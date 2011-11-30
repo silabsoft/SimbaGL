@@ -44,8 +44,6 @@ vector<Model *> *newModels = NULL;
 CRITICAL_SECTION csCurrentModels;
 CRITICAL_SECTION csNewModels;
 
-vector<Model> models;
-
 struct Model
 {
 	GLfloat x;				//x,y,z coords
@@ -137,15 +135,13 @@ void ExecuteCommands()
 
 	if(pCommands[1] == 1)		//if command status "not done"
 	{
-		if(pCommands[0] == 1)	//if command = FindModelByID
-		{
+		if(pCommands[0] == 1) { //if command = FindModelByID
 			const int req_id = pCommands[3];
 			vector<Model *> matching;
 
 			EnterCriticalSection(&csCurrentModels);
-			EnterCriticalSection(&csNewModels);
 
-			/* Aftermath: I made a modificati on to randomly choose a satisfactory model
+			/* Aftermath: I made a modification to randomly choose a satisfactory model
 			 * satisfying the CRC. This way, if the first one happens to be fenced off
 			 * or summat, the script can keep going.
 			 */
@@ -160,47 +156,16 @@ void ExecuteCommands()
 				if(matching.size()) {
 					// MessageBoxA(NULL, "HIA", "HI", 0);
 					const int selectedId = rand() % matching.size();
-
-//					Model *copy = new Model;
-
-					/* Aftermath: this scope is here to avoid using any of selectedModel's
-					 * fields, which would cause an access violation when it is deleted.
-					 */
-//					{
-						const Model * const selectedModel = matching[selectedId];
-//						*copy = *selectedModel;
-//						simbaModels.push_back(copy);
-//					}
-
-
+					const Model * const selectedModel = matching[selectedId];
 					pCommands[3] = selectedModel->x_s;
 					pCommands[4] = selectedModel->y_s;
 					pCommands[1] = 2;
-
-					char * store = (char *) malloc(sizeof(char) * 200);
-					itoa(req_id, store, 10);
-					// MessageBoxA(NULL, store, "SEARCHED THROUGH MODELES:", 0);
-					//MessageBoxA(NULL, store, "FOUND", 0);
-				} else {
-					//MessageBoxA(NULL, "SAD", "NESS", 0);
 				}
 			}
-			LeaveCriticalSection(&csNewModels);
 			LeaveCriticalSection(&csCurrentModels);
-			/*for (int i = 0; i < models.size(); i++)
-			{
-				if (models[i].id == pCommands[3])
-				{
-					pCommands[3] = models[i].x_s;	//xcoord
-					pCommands[4] = models[i].y_s;	//ycoord
-					pCommands[1] = 2;	//set command status to response
-				}
-			}*/
-		}
-		if(pCommands[0] == 2){ //set overlay
+		} else if(pCommands[0] == 2){ //set overlay
 			draw_overlay = (pCommands[3] == 1? true : false) ;
-		}
-		if(pCommands[0] == 3){ // get viewport
+		} else if(pCommands[0] == 3){ // get viewport
 			int Viewport[4];
 			orig_glGetIntegerv(GL_VIEWPORT, Viewport);
 			pCommands[3] = Viewport[0];
@@ -208,30 +173,45 @@ void ExecuteCommands()
 			pCommands[5] = Viewport[2];
 			pCommands[6] = Viewport[3];
 			pCommands[1] = 2;
-		}
-		if(pCommands[0] == 4){ //get GL Position
+		} else if(pCommands[0] == 4){ //get GL Position
 			double x, y ,z;
 			MouseCoordinateToGLPos(pCommands[3], pCommands[4],x,y,z,resizeableClient);
 			pCommands[3] = x;
 			pCommands[4] = y;
 			pCommands[5] = z;
 			pCommands[1] = 2;
-		}
-		if(pCommands[0] == 5){ //using ResizeableClient?
+		} else if(pCommands[0] == 5){ //using ResizeableClient?
 			resizeableClient = (pCommands[3] == 1? true : false) ;
-		}
-		if(pCommands[0] == 6){ //FindModelByTriangle
-			for (int i = 0; i < models.size(); i++)
-			{
-				if (models[i].triangles == pCommands[3])
-				{
-					pCommands[3] = models[i].x_s;	//xcoord
-					pCommands[4] = models[i].y_s;	//ycoord
-					pCommands[1] = 2;	//set command status to response
+		} else if(pCommands[0] == 6){ //FindModelByTriangle
+			const int req_triangles = pCommands[3];
+			vector<Model *> matching;
+
+			EnterCriticalSection(&csCurrentModels);
+
+			/* Aftermath: I made a modification to randomly choose a satisfactory model
+			 * satisfying the CRC. This way, if the first one happens to be fenced off
+			 * or summat, the script can keep going.
+			 */
+			if(currentModels) {
+				vector<Model *>::iterator it = currentModels->begin();
+				for(; it != currentModels->end(); it++) {
+					if((*it)->triangles == req_triangles) {
+						matching.push_back(*it);
+					}
+				}
+
+				if(matching.size()) {
+					const int selectedId = rand() % matching.size();
+					const Model * const selectedModel = matching[selectedId];
+					pCommands[3] = selectedModel->x_s;
+					pCommands[4] = selectedModel->y_s;
+					pCommands[1] = 2;
 				}
 			}
+			LeaveCriticalSection(&csCurrentModels);
 		}
 	}
+
 	if(pCommands[1] != 2) //we have read the command and are not required to respond
 		pCommands[1] = 0;
 }
@@ -333,17 +313,17 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 		newModel->y = (DWORD) pointer + 4 * vertex_offset;
 		newModel->z = (DWORD) pointer + 8 * vertex_offset;
 		newModel->stride = stride;
-
-		models.push_back(*newModel);
+		newModels->push_back(newModel);
 	}
 	else
 	{
-		Model newModel;
-		newModel.x = 0;
-		newModel.y = 0;
-		newModel.z = 0;
-		newModel.stride = stride;
-		models.push_back(newModel);
+		Model* newModel = new Model;
+		newModel->x = 0;
+		newModel->y = 0;
+		newModel->z = 0;
+		newModel->stride = stride;
+		newModel->id = 0;
+		newModels->push_back(newModel);
 	}
 	(*orig_glVertexPointer) (size, type, stride, pointer);
 }
@@ -353,8 +333,12 @@ void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoi
 	if(logging)
 		add_log("glDrawElements %d %d %d indices",mode,count,type);
 	if(drawing_model){
-		models.back().id = bufferCRC[lastBuffer];
-		models.back().triangles = count/3;
+		EnterCriticalSection(&csNewModels);
+		Model *back = newModels->back();
+		back->id = bufferCRC[lastBuffer];
+		back->triangles = count / 3;
+		LeaveCriticalSection(&csNewModels);
+
 		if(last_stride == draw_stride && draw_overlay)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		else
@@ -388,36 +372,27 @@ void sys_glPopMatrix (void)
 	int Viewport[4];
 	double View2D[3];
 
-	if(drawing_model)
-	{
+	if(drawing_model) {
 		orig_glGetDoublev(GL_MODELVIEW_MATRIX, ModelView);
-		orig_glGetDoublev(GL_PROJECTION_MATRIX, ProjView) ;
+		orig_glGetDoublev(GL_PROJECTION_MATRIX, ProjView);
+
 		if(resizeableClient){
 			orig_glGetIntegerv(GL_VIEWPORT, Viewport);
-		}
-		else{
+		} else{
 			Viewport[0] = 4;
 			Viewport[1] = 4;
 			Viewport[2] = 509;
 			Viewport[3] = 333;
 		}
 
-
-
-		if(gluProject(models.back().x, models.back().y, models.back().z, ModelView, ProjView, Viewport, &View2D[0], &View2D[1], &View2D[2]) == GL_TRUE)
-		{
-			models.back().x_s = (unsigned int)View2D[0];
-			models.back().y_s = (unsigned int)Viewport[3]-(unsigned int)View2D[1];
-		}
-		
 		EnterCriticalSection(&csNewModels);
-		if(newModels) {
-			if(models.size()) {
-				Model *copy = new Model;
-				*copy = models.back();
-				newModels->push_back(copy);
-			}
+		Model *back = newModels->back();
+
+		if(gluProject(back->x, back->y, back->z, ModelView, ProjView, Viewport, &View2D[0], &View2D[1], &View2D[2]) == GL_TRUE) {
+			back->x_s = (unsigned int)View2D[0];
+			back->y_s = (unsigned int)Viewport[3]-(unsigned int)View2D[1];
 		}
+
 		LeaveCriticalSection(&csNewModels);
 	}
 
@@ -711,7 +686,6 @@ void sys_wglSwapBuffers(HDC hDC)
 
 	if(logging)
 		add_log("wglSwapBuffers");
-
 	
 	EnterCriticalSection(&csCurrentModels);
 	EnterCriticalSection(&csNewModels);
@@ -748,8 +722,6 @@ void sys_wglSwapBuffers(HDC hDC)
 	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
 	(*orig_wglSwapBuffers) (hDC);
 
-	
-
 	if(newModels) {
 		if(currentModels) {
 			vector<Model *>::iterator itOld = currentModels->begin();
@@ -761,15 +733,6 @@ void sys_wglSwapBuffers(HDC hDC)
 
 		currentModels = newModels;
 		newModels = new vector<Model *>();
-
-		/* Aftermath: we would be able to save a lot of memory if we stopped returning
-		   values by reference; the current way, I can't delete models without being worried
-		   that Simba is still using their functions, causing a crash. 
-		   
-		   Update: I've implemented a short term workaround to mitigate this - all models
-		   returned to Simba are copied before being given to Simba, so that all other
-		   models can be deleted. We should be mindful of memory - it's easy to run out of
-		   space, causing Java to crash. */
 	}
 	LeaveCriticalSection(&csNewModels);
 	LeaveCriticalSection(&csCurrentModels);	
