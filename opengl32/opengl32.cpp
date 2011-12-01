@@ -43,6 +43,8 @@ vector<Model *> *newModels = NULL;
  */
 CRITICAL_SECTION csCurrentModels;
 CRITICAL_SECTION csNewModels;
+CRITICAL_SECTION csCurrentInventoryItems;
+CRITICAL_SECTION csNewInventoryItems;
 
 struct Model
 {
@@ -57,6 +59,44 @@ struct Model
 	unsigned int triangles;
 	bool firstFirst;
 };
+
+/* Aftermath: Kill me now... This is so dirty. */
+/* Stores the second parameter of the last glBindTexture(GL_TEXTURE_RECTANGLE) call. 
+ * Is set to zero after every glEnd. */
+int currentRectangleTexture = 0;
+struct PossibleItem;
+PossibleItem *currentPossibleItem;
+
+struct PossibleItem {
+	int texture_id;
+	int coord_count;
+	//GLfloat coordsX[4];
+	//GLfloat coordsY[4];
+	int screenCoordsX[4];
+	int screenCoordsY[4];
+	/* Adds up the x y texture coordinates for all the vertices... dear god.
+	 * If it's 32 + 32 + 36 + 36 = 64 + 72 = 76 + 60 = 136 then we call it an inv item.
+	 * Or rather [135-137] due to floating point issues */
+	double texCoordSum;
+	int checksum;
+
+	PossibleItem() {
+		texCoordSum = 0;
+		coord_count = 0;
+	}
+};
+
+struct InventoryItem {
+	int texture_id;
+	int screen_tl_x;
+	int screen_tl_y;
+	int checksum;
+
+};
+
+/* Aftermath: work similarly to the vectors containing the models. */
+vector<InventoryItem *> *currentInventoryItems = NULL;
+vector<InventoryItem *> *newInventoryItems = NULL;
 
 /* Aftermath: The C-side counterpart to the TModel provided to SCAR/Simba.
  * Note: Not actually in use, just something I was toying around with. */
@@ -82,6 +122,35 @@ bool            bFontsBuild = 0;
 
 char szSharedMemoryName[]="Local\\InterceptionMappingObject";
 DWORD * pCommands;
+int getInventoryItemChecksum()
+{
+   GLint textureWidth, textureHeight;
+   glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB, 0, GL_TEXTURE_WIDTH, &textureWidth);
+   glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB, 0, GL_TEXTURE_HEIGHT, &textureHeight); 
+   if(textureWidth > 1000 || textureHeight > 1000) return 0;
+   GLubyte *buffer = (GLubyte *)malloc(textureWidth*textureHeight*4);
+
+   glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+ 
+   int checksum = 0;
+   
+   for(int y = 0; y < textureHeight; y+=4) {
+       for(int x = 0; x < textureWidth; x+=4) {
+           int addressStart = ((y*textureWidth) + x)*4;
+
+		   // Aftermath: this lame 'checksum' is just adding the rgb coordinates skipping by 4 in x and y directions
+		   int r = buffer[addressStart];
+		   int g = buffer[addressStart + 1];
+		   int b = buffer[addressStart + 2];
+		   int a = buffer[addressStart + 3];
+		   checksum += a;
+//		   checksum += r + g + b;
+       }
+   }
+   free(buffer);
+
+   return checksum;
+ }
 
 unsigned int last_stride;
 
@@ -257,7 +326,91 @@ DWORD QuickChecksum(DWORD *pData, int size)
 	return sum;
 }
 
+void sys_glBindTexture (GLenum target,  GLuint texture)
+{
+	/* Aftermath: for items, if it's a GL_TEXTURE_RECTANGLE, store it so we can look at it.
+	 */
+	// 0x84F5 = GL_TEXTURE_RECTANGLE
+	if(target == 0x84F5) {
+		currentRectangleTexture = texture;
+		currentPossibleItem = new PossibleItem;
+		currentPossibleItem->texture_id = texture;
+		(*orig_glBindTexture) (target, texture);
+		currentPossibleItem->checksum = getInventoryItemChecksum();
+	} else {
+		(*orig_glBindTexture) (target, texture);
+	}
+}
 
+void sys_glTexCoord2f (GLfloat s,  GLfloat t)
+{
+	/* Aftermath: for now, identifying items by their having four texture coords. */
+	if(currentRectangleTexture) {
+		currentPossibleItem->coord_count++;
+		currentPossibleItem->texCoordSum += s;
+		currentPossibleItem->texCoordSum += t;
+	}
+
+	if(logging)
+		add_log("glTexCoord2f"); // need to add vars was lazy;
+	(*orig_glTexCoord2f) (s, t);
+}
+
+
+void sys_glVertex2i (GLint x,  GLint y)
+{
+	/* Aftermath: for items, if currentRectangleTexture is set, add its screen coords. */
+	if(currentRectangleTexture) {
+		int numCoords = currentPossibleItem->coord_count;
+		if(numCoords < 5) {
+			currentPossibleItem->screenCoordsX[numCoords - 1] = x;
+			currentPossibleItem->screenCoordsY[numCoords - 1] = y;
+		}
+	}
+	(*orig_glVertex2i) (x, y);
+}
+
+void sys_glEnd (void)
+{
+	/* Aftermath: call it an item in inventory if it has 4 coords and texcoordsum is btw. 135-137. */
+	if(currentRectangleTexture) {
+		if(currentPossibleItem->coord_count == 4 && currentPossibleItem->texCoordSum < 137
+			&& currentPossibleItem->texCoordSum > 135) {
+			EnterCriticalSection(&csNewInventoryItems);
+			int tid = currentPossibleItem->texture_id;
+			int screen_tl_x = currentPossibleItem->screenCoordsX[0];
+			int screen_tl_y = currentPossibleItem->screenCoordsY[0];
+			int checksum = currentPossibleItem->checksum;
+			InventoryItem *item = new InventoryItem;
+			item->texture_id = tid;
+			item->screen_tl_x = screen_tl_x;
+			item->screen_tl_y = screen_tl_y;
+			item->checksum = checksum;
+			newInventoryItems->push_back(item);
+
+			/*char *strid = new char[10];
+			char *strtlx = new char[10];
+			char *strtly = new char[10];
+			itoa(item->texture_id, strid, 10);
+			itoa(item->screen_tl_x, strtlx, 10);
+			itoa(item->screen_tl_y, strtly, 10);
+			OutputDebugString("Inventory item: ");
+			OutputDebugString(strid);
+			OutputDebugString(strtlx);
+			OutputDebugString(strtly);
+			delete strid;
+			delete strtlx;
+			delete strtly;*/
+			LeaveCriticalSection(&csNewInventoryItems);
+		}
+		delete currentPossibleItem;
+		currentRectangleTexture = 0;
+	}
+
+	if(logging)
+		add_log("glEnd");
+	(*orig_glEnd) ();
+}
 
 void sys_glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t)
 {
@@ -717,6 +870,29 @@ void sys_wglSwapBuffers(HDC hDC)
 			}
 		}
 	}
+
+	EnterCriticalSection(&csCurrentInventoryItems);
+	if(currentInventoryItems) {
+		vector<InventoryItem *>::iterator it;
+		for(it = currentInventoryItems->begin(); it != currentInventoryItems->end(); it++) {
+			InventoryItem *drawItem = *it;
+				
+			if(draw_overlay) {
+				orig_glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
+				switch(dataDisplay){
+					case 0:
+						glPrint(drawItem->screen_tl_x,drawItem->screen_tl_y,"%d",drawItem->checksum);
+						break;
+					break;
+					case 2:
+						glPrint(drawItem->screen_tl_x,drawItem->screen_tl_y,"Xs: %d Ys: %d",drawItem->screen_tl_x,drawItem->screen_tl_y);
+						break;
+				}
+			}
+		}
+	}
+	LeaveCriticalSection(&csCurrentInventoryItems);
+
 	/* END OVERLAY */
 
 	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
@@ -736,6 +912,24 @@ void sys_wglSwapBuffers(HDC hDC)
 	}
 	LeaveCriticalSection(&csNewModels);
 	LeaveCriticalSection(&csCurrentModels);	
+
+	/* Aftermath: Inventory item switch */
+	EnterCriticalSection(&csCurrentInventoryItems);
+	EnterCriticalSection(&csNewInventoryItems);
+	if(newInventoryItems) {
+		if(currentInventoryItems) {
+			vector<InventoryItem *>::iterator itOld = currentInventoryItems->begin();
+			for(; itOld != currentInventoryItems->end(); itOld++) {
+				delete *itOld;
+			}
+			delete currentInventoryItems;
+		}
+
+		currentInventoryItems = newInventoryItems;
+		newInventoryItems = new vector<InventoryItem *>();
+	}
+	LeaveCriticalSection(&csNewInventoryItems);
+	LeaveCriticalSection(&csCurrentInventoryItems);
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)
@@ -873,13 +1067,6 @@ void sys_glDisable (GLenum cap)
 	(*orig_glDisable) (cap);
 }
 
-void sys_glEnd (void)
-{
-	if(logging)
-		add_log("glEnd");
-	(*orig_glEnd) ();
-}
-
 void sys_glFrustum (GLdouble left,  GLdouble right,  GLdouble bottom,  GLdouble top,  GLdouble zNear,  GLdouble zFar)
 {
 	if(logging)
@@ -927,13 +1114,6 @@ void sys_glShadeModel (GLenum mode)
 	if(logging)
 		add_log("glShadeModel"); // need to add vars was lazy;
 	(*orig_glShadeModel) (mode);
-}
-
-void sys_glTexCoord2f (GLfloat s,  GLfloat t)
-{
-	if(logging)
-		add_log("glTexCoord2f"); // need to add vars was lazy;
-	(*orig_glTexCoord2f) (s, t);
 }
 
 void sys_glTexEnvf (GLenum target,  GLenum pname,  GLfloat param)
@@ -1063,9 +1243,14 @@ BOOL __stdcall DllMain (HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
 	case DLL_PROCESS_ATTACH:
 		InitializeCriticalSection(&csNewModels);
 		InitializeCriticalSection(&csCurrentModels);
+		InitializeCriticalSection(&csNewInventoryItems);
+		InitializeCriticalSection(&csCurrentInventoryItems);
 		EnterCriticalSection(&csNewModels);
 		newModels = new vector<Model *>();
 		LeaveCriticalSection(&csNewModels);
+		EnterCriticalSection(&csNewInventoryItems);
+		newInventoryItems = new vector<InventoryItem *>();
+		LeaveCriticalSection(&csNewInventoryItems);
 
 		DisableThreadLibraryCalls (hOriginalDll);
 		CreateSharedMemory();
