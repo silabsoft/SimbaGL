@@ -394,10 +394,7 @@ void sys_glArrayElement (GLint i)
 	(*orig_glArrayElement) (i);
 }
 
-void sys_glBindTexture (GLenum target,  GLuint texture)
-{
-	(*orig_glBindTexture) (target, texture);
-}
+
 
 void sys_glCallList (GLuint list)
 {
@@ -1769,10 +1766,6 @@ void sys_glVertex2fv (const GLfloat *v)
 	(*orig_glVertex2fv) (v);
 }
 
-void sys_glVertex2i (GLint x,  GLint y)
-{
-	(*orig_glVertex2i) (x, y);
-}
 
 void sys_glVertex2iv (const GLint *v)
 {

@@ -127,7 +127,7 @@ int getInventoryItemChecksum()
    GLint textureWidth, textureHeight;
    glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB, 0, GL_TEXTURE_WIDTH, &textureWidth);
    glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB, 0, GL_TEXTURE_HEIGHT, &textureHeight); 
-   if(textureWidth > 1000 || textureHeight > 1000) return 0;
+   if(textureWidth > 60 || textureHeight > 60 || textureWidth < 30 || textureHeight < 30) return 0;
    GLubyte *buffer = (GLubyte *)malloc(textureWidth*textureHeight*4);
 
    glGetTexImage(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
