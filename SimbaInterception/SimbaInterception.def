@@ -9,3 +9,4 @@ EXPORTS
 	GetModelPositionByChecksum=GetModelPositionByChecksum
 	SetUsingResizeableClient=SetUsingResizeableClient
 	GetModelPositionByTriangleCount=GetModelPositionByTriangleCount
+	FindInventoryFirst=FindInventoryFirst

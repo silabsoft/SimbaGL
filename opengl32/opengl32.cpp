@@ -3,6 +3,7 @@
 using namespace std;
 
 #include "opengl32.h"
+#include "FunctionIDs.h"
 #include "uifunction.h"
 
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
@@ -278,6 +279,19 @@ void ExecuteCommands()
 				}
 			}
 			LeaveCriticalSection(&csCurrentModels);
+		} else if(pCommands[0] == CMD_FIND_INVENTORY_FIRST) {
+			unsigned long req_id = pCommands[3];
+			EnterCriticalSection(&csCurrentInventoryItems);
+			vector<InventoryItem *>::const_iterator it;
+			for(it = currentInventoryItems->begin(); it != currentInventoryItems->end(); it++) {
+				if((*it)->checksum == req_id) {
+					pCommands[3] = (*it)->screen_tl_x;
+					pCommands[4] = (*it)->screen_tl_y;
+					pCommands[1] = 2;
+					break;
+				}
+			}
+			LeaveCriticalSection(&csCurrentInventoryItems);
 		}
 	}
 

@@ -15,13 +15,15 @@ static char* exports[] = {
 	/* Aftermath: updated this function to 1) resturn a success boolean 2) use a LongWord to avoid overflow
 	 * 3) put x, y first to maintain uniformity with Simba/SCAR functions 4) properly use by-reference in Pascal
 	 * to avoid access violations (e.g. people passing in numbers instead of variables) */
-	(char *) "GetModelPositionByChecksum", (char *) "function InterceptionGetModelPositionByChecksum(var x, y: Integer; id: LongWord):Boolean;",
+	(char *) "GetModelPositionByChecksum", (char *) "function InterceptionGetModelPositionByChecksum(var x, y: Integer; id: LongWord): Boolean;",
 	(char*)"GetModelPositionByTriangleCount", (char*)"procedure InterceptionGetModelPositionByTriCount(triCount :integer; var x,y : integer)",
+	(char *) "FindInventoryFirst", (char *) "function InterceptionFindInventoryFirst(var x, y: Integer; id: LongWord): Boolean;",
+	
 	// (char*)"TestRecordType", (char*)"procedure TestRecordType(rec: TModel)",
 };
 
 
-#define NumExports 8
+#define NumExports 9
 HMODULE dllinst;
 bool debug = false;
 DWORD * pCommands;

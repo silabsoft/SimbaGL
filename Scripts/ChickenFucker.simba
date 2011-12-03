@@ -19,10 +19,12 @@ program ChickenFucker;
 {.include srl/srl.scar}
 
 const
-  self = 1038358596;    // Your character's model - update this.
+ // self = 185715466;    // Your character's model - update this.
+   self=2318119074;
 var
   NPC_CHICKEN: array[0..0] of LongWord;
   NPC_COWS: array[0..2] of LongWord;
+  NPC_AKW: array[0..1] of LongWord;
   x, y, i : Integer;
   HPBarGreen : Integer;
   BONES: array[0..0] of LongWord;
@@ -31,10 +33,13 @@ var
   DTM_INV_BONES: Integer;
   NPC_TARGET: array of LongWord;
 
+
 procedure LoadNPCs;
 begin
   HPBarGreen := BitmapFromString(4, 2, 'meJxjOLuQ4fQcEAIy4Oj0HACJBgtc');
   NPC_CHICKEN[0] := 2208061755;
+  NPC_AKW[0] := 1480076291;
+  NPC_AKW[1] := 2712756345;
   NPC_COWS[0] := 779656846;
   NPC_COWS[1] := 3606731925;
   NPC_COWS[2] := 3461859901;
@@ -156,6 +161,7 @@ begin
       end;
     end else
     begin
+    writeln('cbt');
       WaitFlag;
       Idle;
     end;

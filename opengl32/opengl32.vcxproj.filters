@@ -28,6 +28,9 @@
     <ClInclude Include="uifunction.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FunctionIDs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="opengl32.def">

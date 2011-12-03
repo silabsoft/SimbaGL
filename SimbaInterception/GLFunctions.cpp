@@ -80,3 +80,19 @@ void GetModelPositionByTriangleCount(int id, int& x,int& y){
 		y = -1;
 	}
 }
+
+bool FindInventoryFirst(int &x, int &y, unsigned long id)
+{
+	DWORD *arr = requestSharedMemory();
+	arr[0] = CMD_FIND_INVENTORY_FIRST;
+	arr[3] = id;
+	arr[1] = 1;
+
+	if(isGoingToCallBack()){
+		x = arr[3];
+		y = arr[4];
+		return true;
+	}
+
+	return false;
+}

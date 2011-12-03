@@ -138,6 +138,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CommunicationHeader.h" />
+    <ClInclude Include="FunctionIDs.h" />
     <ClInclude Include="GLFunctions.h" />
     <ClInclude Include="Main.h" />
   </ItemGroup>

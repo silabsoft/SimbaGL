@@ -147,6 +147,7 @@
     <CustomBuild Include="opengl32.def" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FunctionIDs.h" />
     <ClInclude Include="opengl32.h" />
     <ClInclude Include="uifunction.h" />
   </ItemGroup>
