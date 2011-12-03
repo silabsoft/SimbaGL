@@ -9,8 +9,8 @@ using namespace std;
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
 
 bool drawing_model;
-bool draw = false;
-bool draw_overlay = false;
+bool draw = true;
+bool draw_overlay = true;
 bool resizeableClient = false;
 bool logging = false;
 
