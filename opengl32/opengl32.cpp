@@ -1021,6 +1021,7 @@ void sys_wglSwapBuffers(HDC hDC)
 	LeaveCriticalSection(&csCurrentInventoryItems);
 
 	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
+	Sleep(200);
 	(*orig_wglSwapBuffers) (hDC);
 }
 
