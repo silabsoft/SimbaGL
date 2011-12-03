@@ -66,6 +66,23 @@ bool GetModelPositionByChecksum(int &x, int &y, unsigned long id)
 
 	return false;
 }
+
+bool GetModelPositionByChecksum2(int &x, int &y, unsigned long id2)
+{
+	DWORD * arr = requestSharedMemory();
+	arr[0] = CMD_FIND_MODEL_BY_ID2;
+	arr[3] = id2;
+	arr[1] = 1;
+
+	if(isGoingToCallBack()){
+		x = arr[3];
+		y = arr[4];
+		return true;
+	}
+
+	return false;
+}
+
 void GetModelPositionByTriangleCount(int id, int& x,int& y){
 	DWORD * arr = requestSharedMemory();
 	arr[0] = 6;

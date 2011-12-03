@@ -55,7 +55,8 @@ struct Model
 	unsigned int stride;
 	unsigned int x_s;		//screen coord
 	unsigned int y_s;		//screen coord
-	unsigned int id;		//id of model
+	unsigned long id;		// Quick checksum of models
+	unsigned long id2;		// Full checksum of model /* Aftermath: should really just switch to this... */
 	unsigned int count;
 	unsigned int triangles;
 	bool firstFirst;
@@ -114,6 +115,8 @@ GLuint lastBuffer = 0;
 //vector<unsigned int> bufferCRC;
 
 unsigned int bufferCRC[50000];
+/* Aftermath: Stores FullChecksum */
+unsigned int bufferCRC2[50000];
 
 HDC				hDC;
 HFONT			hOldFont;
@@ -292,11 +295,54 @@ void ExecuteCommands()
 				}
 			}
 			LeaveCriticalSection(&csCurrentInventoryItems);
-		}
+		} else if(pCommands[0] == CMD_FIND_MODEL_BY_ID2) {
+			const int req_id2 = pCommands[3];
+			vector<Model *> matching;
+
+			EnterCriticalSection(&csCurrentModels);
+
+			if(currentModels) {
+				vector<Model *>::iterator it = currentModels->begin();
+				for(; it != currentModels->end(); it++) {
+					if((*it)->id2 == req_id2) {
+						matching.push_back(*it);
+					}
+				}
+
+				if(matching.size()) {
+					const int selectedId = rand() % matching.size();
+					const Model * const selectedModel = matching[selectedId];
+					pCommands[3] = selectedModel->x_s;
+					pCommands[4] = selectedModel->y_s;
+					pCommands[1] = 2;
+				}
+			}
+			LeaveCriticalSection(&csCurrentModels);
+		} 
 	}
 
 	if(pCommands[1] != 2) //we have read the command and are not required to respond
 		pCommands[1] = 0;
+}
+
+void glPrint2(HDC hDC, int x, int y, const char *fmt, ...) {
+	if (fmt == NULL)	return;
+
+	char		text[256];
+	va_list		ap;
+
+	va_start(ap, fmt);
+	vsprintf(text, fmt, ap);
+	va_end(ap);
+
+	RECT rect;
+	rect.top = y;
+	rect.left = x;
+	rect.bottom = y + 50;
+	rect.right = x + 200;
+
+
+	DrawText(hDC, text, -1, &rect, DT_TOP | DT_SINGLELINE);
 }
 
 
@@ -330,6 +376,28 @@ DWORD QuickChecksum(DWORD *pData, int size)
 	sum = *pData;
 
 	for(int i = 1; i < (size/4); i++)
+	{
+		tmp = pData[i];
+		tmp = (DWORD)(sum >> 29) + tmp;
+		tmp = (DWORD)(sum >> 17) + tmp;
+		sum = (DWORD)(sum << 3)  ^ tmp;
+	}
+
+	return sum;
+}
+
+/* Aftermath: I needed this because the analysis
+   of parts of the pixels was insufficient for me
+   to solve the Pinball random. */
+DWORD FullChecksum(DWORD *pData, int size)
+{
+	if(!pData) { return 0x0; }
+
+	DWORD sum;
+	DWORD tmp;
+	sum = *pData;
+
+	for(int i = 1; i < (size); i++)
 	{
 		tmp = pData[i];
 		tmp = (DWORD)(sum >> 29) + tmp;
@@ -448,6 +516,7 @@ void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum u
 
 	//bufferCRC.reserve(lastBuffer+10);
 	bufferCRC[lastBuffer] = QuickChecksum((DWORD*)data, size);
+	bufferCRC2[lastBuffer] = FullChecksum((DWORD *) data, size);
 	//bufferCRC[lastBuffer] = lastBuffer;
 
 	orig_glBufferDataARB(target, size, data, usage);
@@ -503,6 +572,7 @@ void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoi
 		EnterCriticalSection(&csNewModels);
 		Model *back = newModels->back();
 		back->id = bufferCRC[lastBuffer];
+		back->id2 = bufferCRC2[lastBuffer];
 		back->triangles = count / 3;
 		LeaveCriticalSection(&csNewModels);
 
@@ -815,6 +885,8 @@ void sys_glPushMatrix (void)
 
 void sys_wglSwapBuffers(HDC hDC)
 {
+
+
 	/* START MOVED */
 	/* Aftermath: I moved all the stuff we need to do down to swapbuffers, as this is called
 	 * when the application has finished its graphics process. This way, we only process once
@@ -845,7 +917,7 @@ void sys_wglSwapBuffers(HDC hDC)
 		drawAll = !drawAll; //overlay for all models regardless of stride.
 	if(GetAsyncKeyState(VK_PRIOR)&1){
 		dataDisplay++;
-		dataDisplay = dataDisplay % 4; //display options for the debugging. 
+		dataDisplay = dataDisplay % 5; //display options for the debugging. 
 	}
 	if(GetAsyncKeyState(VK_NEXT)&1)
 		logging = !logging;
@@ -869,16 +941,20 @@ void sys_wglSwapBuffers(HDC hDC)
 				orig_glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				switch(dataDisplay){
 					case 0:
-					glPrint(drawModel->x_s,drawModel->y_s,"C: %u",drawModel->id);
+					glPrint2(hDC, drawModel->x_s,drawModel->y_s,"C: %u",drawModel->id);
 					break;
 					case 1:
-					glPrint(drawModel->x_s,drawModel->y_s,"T: %u",drawModel->triangles);
+					glPrint2(hDC, drawModel->x_s,drawModel->y_s,"T: %u",drawModel->triangles);
 					break;
 					case 2:
-					glPrint(drawModel->x_s,drawModel->y_s,"Xs: %d Ys: %d",drawModel->x_s,drawModel->y_s);
+					glPrint2(hDC, drawModel->x_s,drawModel->y_s,"Xs: %d Ys: %d",drawModel->x_s,drawModel->y_s);
 					break;
 					case 3:
-					glPrint(drawModel->x_s,drawModel->y_s,"X: %f Y: %f Z: %f",drawModel->x,drawModel->y,drawModel->z);
+					glPrint2(hDC, drawModel->x_s,drawModel->y_s,"X: %f Y: %f Z: %f",drawModel->x,drawModel->y,drawModel->z);
+					break;
+					case 4:
+					orig_glColor4f(0.0f, 0.0f, 1.0f, 1.0f);
+					glPrint2(hDC, drawModel->x_s,drawModel->y_s,"%u",drawModel->id2);
 					break;
 				}
 			}
@@ -895,11 +971,11 @@ void sys_wglSwapBuffers(HDC hDC)
 				orig_glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
 				switch(dataDisplay){
 					case 0:
-						glPrint(drawItem->screen_tl_x,drawItem->screen_tl_y,"%d",drawItem->checksum);
+						glPrint2(hDC, drawItem->screen_tl_x,drawItem->screen_tl_y,"%d",drawItem->checksum);
 						break;
 					break;
 					case 2:
-						glPrint(drawItem->screen_tl_x,drawItem->screen_tl_y,"Xs: %d Ys: %d",drawItem->screen_tl_x,drawItem->screen_tl_y);
+						glPrint2(hDC, drawItem->screen_tl_x,drawItem->screen_tl_y,"Xs: %d Ys: %d",drawItem->screen_tl_x,drawItem->screen_tl_y);
 						break;
 				}
 			}
@@ -909,8 +985,7 @@ void sys_wglSwapBuffers(HDC hDC)
 
 	/* END OVERLAY */
 
-	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
-	(*orig_wglSwapBuffers) (hDC);
+
 
 	if(newModels) {
 		if(currentModels) {
@@ -944,6 +1019,9 @@ void sys_wglSwapBuffers(HDC hDC)
 	}
 	LeaveCriticalSection(&csNewInventoryItems);
 	LeaveCriticalSection(&csCurrentInventoryItems);
+
+	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
+	(*orig_wglSwapBuffers) (hDC);
 }
 
 void sys_BindTextureEXT(GLenum target, GLuint texture)

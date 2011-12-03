@@ -19,8 +19,8 @@ program ChickenFucker;
 {.include srl/srl.scar}
 
 const
- // self = 185715466;    // Your character's model - update this.
-   self=2318119074;
+  self = 185715466;    // Your character's model - update this.
+   //self=2318119074;
 var
   NPC_CHICKEN: array[0..0] of LongWord;
   NPC_COWS: array[0..2] of LongWord;
@@ -48,7 +48,7 @@ begin
   DTM_BONES := DTMFromString('mrAAAAHic42BgYDABYmMg1gdiRShmAmIWBghgh7I5gZgNiJmhbBj4P8EBAx/bMRWOCQFGAhgGAPAVEFk=');
   DTM_INV_BONES :=
   DTMFromString('mOwIAAHick2ZgYBAAYlEglgBiGSAWBGIhIBaDiskBsQIQK0FpkBpxqDouIOYAYjYgZoWy+aF6JaGYF4j5oGYKQPXBMMgcEag8F9QcmFoJqH5pKJaCulMAqpYdaicblM0HxdxQ+YaqKiDJxNDa0MCwavFihoKcbIb2pkaGlro6hil9vQweDiZg7OViBWcTi0HmgjDIHJB59ASMdMR4AAAV2B0i');
-  NPC_TARGET := NPC_COWS;
+  NPC_TARGET := NPC_AKW;
 
 end;
 

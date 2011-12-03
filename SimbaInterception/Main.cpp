@@ -18,6 +18,7 @@ static char* exports[] = {
 	(char *) "GetModelPositionByChecksum", (char *) "function InterceptionGetModelPositionByChecksum(var x, y: Integer; id: LongWord): Boolean;",
 	(char*)"GetModelPositionByTriangleCount", (char*)"procedure InterceptionGetModelPositionByTriCount(triCount :integer; var x,y : integer)",
 	(char *) "FindInventoryFirst", (char *) "function InterceptionFindInventoryFirst(var x, y: Integer; id: LongWord): Boolean;",
+	(char *) "GetModelPositionByChecksum2", (char *) "function InterceptionGetModelPositionByChecksum2(var x, y: Integer; id: LongWord): Boolean;",
 	
 	// (char*)"TestRecordType", (char*)"procedure TestRecordType(rec: TModel)",
 };
