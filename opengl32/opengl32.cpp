@@ -9,8 +9,8 @@ using namespace std;
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
 
 bool drawing_model;
-bool draw = true;
-bool draw_overlay = true;
+bool draw = false;
+bool draw_overlay = false;
 bool resizeableClient = false;
 bool logging = false;
 
@@ -1021,7 +1021,8 @@ void sys_wglSwapBuffers(HDC hDC)
 	LeaveCriticalSection(&csCurrentInventoryItems);
 
 	/* Aftermath: Do this first in case something in the old models is used. [my knowledge/logic is questionable here]*/
-	Sleep(200);
+	if(draw_overlay)
+	Sleep(500); //SIGH PLEASE FIX THIS SOME DAY
 	(*orig_wglSwapBuffers) (hDC);
 }
 
