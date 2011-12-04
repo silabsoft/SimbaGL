@@ -55,11 +55,17 @@ struct Model
 	unsigned int stride;
 	unsigned int x_s;		//screen coord
 	unsigned int y_s;		//screen coord
-	unsigned long id;		// Quick checksum of models
-	unsigned long id2;		// Full checksum of model /* Aftermath: should really just switch to this... */
+	unsigned long id;		// Quick checksum of model when matrix created
+
+	/* Aftermath: Introduced this because sometimes model data is modified, e.g. in Pinball random
+	 * This is computed and stored in id2 when the matrix is popped (example of something that modifies
+	 * matrices is glBufferSubDataARB). */
+	unsigned long id2;		
 	unsigned int count;
 	unsigned int triangles;
 	bool firstFirst;
+
+
 };
 
 /* Aftermath: Kill me now... This is so dirty. */
@@ -115,8 +121,11 @@ GLuint lastBuffer = 0;
 //vector<unsigned int> bufferCRC;
 
 unsigned int bufferCRC[50000];
-/* Aftermath: Stores FullChecksum */
-unsigned int bufferCRC2[50000];
+
+//Aftermath: stores a pointer to the data associated with a buffer telling length
+// (these are used to compute modifications after the initial matrix)
+void *bufferData[50000];
+int bufferSize[50000];
 
 HDC				hDC;
 HFONT			hOldFont;
@@ -515,8 +524,10 @@ void sys_glBufferDataARB(GLenum target, GLsizei size, const void* data, GLenum u
 	//	if(target == 0x8892)
 
 	//bufferCRC.reserve(lastBuffer+10);
+	//AM:ANCHOR
+	bufferData[lastBuffer] = (void *) data;
+	bufferSize[lastBuffer] = size;
 	bufferCRC[lastBuffer] = QuickChecksum((DWORD*)data, size);
-	bufferCRC2[lastBuffer] = FullChecksum((DWORD *) data, size);
 	//bufferCRC[lastBuffer] = lastBuffer;
 
 	orig_glBufferDataARB(target, size, data, usage);
@@ -558,7 +569,6 @@ void sys_glVertexPointer (GLint size,  GLenum type,  GLsizei stride,  const GLvo
 		newModel->y = 0;
 		newModel->z = 0;
 		newModel->stride = stride;
-		newModel->id = 0;
 		newModels->push_back(newModel);
 	}
 	(*orig_glVertexPointer) (size, type, stride, pointer);
@@ -572,7 +582,8 @@ void sys_glDrawElements (GLenum mode,  GLsizei count,  GLenum type,  const GLvoi
 		EnterCriticalSection(&csNewModels);
 		Model *back = newModels->back();
 		back->id = bufferCRC[lastBuffer];
-		back->id2 = bufferCRC2[lastBuffer];
+		back->id2 = QuickChecksum((DWORD*)bufferData[lastBuffer], bufferSize[lastBuffer]);
+
 		back->triangles = count / 3;
 		LeaveCriticalSection(&csNewModels);
 
