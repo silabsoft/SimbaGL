@@ -133,7 +133,7 @@ void __stdcall TestRecordType(void *test) {
 
 void setOverlay(bool b){
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 2;
+	arr[0] = CMD_SET_OVERLAY;
 	arr[2] = 4;
 	arr[3] = b ? 1 : 0;
 	arr[1] = 1;

@@ -13,7 +13,7 @@ signed int * glGetIntegerv(signed int * arr){
 
 bool getViewport(int& x,int& y, int& width, int& height){
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 3;
+	arr[0] = CMD_GET_VIEWPORT;
 	arr[1] = 1;
 
 	if(isGoingToCallBack()){
@@ -29,7 +29,7 @@ bool getViewport(int& x,int& y, int& width, int& height){
 
 void getGLPosition(int x, int y, double& posX,double& posY, double& posZ){
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 4;
+	arr[0] = CMD_GET_GL_POSITION;
 	arr[3] = x;
 	arr[4] = y;
 	arr[1] = 1;
@@ -46,7 +46,7 @@ void getGLPosition(int x, int y, double& posX,double& posY, double& posZ){
 }
 void SetUsingResizeableClient(bool b){
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 5;
+	arr[0] = CMD_SET_RESIZEABLE;
 	arr[3] = b ? 1 : 0;
 	arr[1] = 1;
 }
@@ -54,7 +54,7 @@ void SetUsingResizeableClient(bool b){
 bool GetModelPositionByChecksum(int &x, int &y, unsigned long id)
 {
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 1;
+	arr[0] = CMD_FIND_MODEL_BY_CHECKSUM;
 	arr[3] = id;
 	arr[1] = 1;
 
@@ -85,7 +85,7 @@ bool GetModelPositionByChecksum2(int &x, int &y, unsigned long id2)
 
 void GetModelPositionByTriangleCount(int id, int& x,int& y){
 	DWORD * arr = requestSharedMemory();
-	arr[0] = 6;
+	arr[0] = CMD_FIND_MODEL_BY_TRIANGLE_COUNT;
 	arr[3] = id;
 	arr[1] = 1;
 	if(isGoingToCallBack()){

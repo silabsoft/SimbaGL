@@ -217,7 +217,7 @@ void ExecuteCommands()
 
 	if(pCommands[1] == 1)		//if command status "not done"
 	{
-		if(pCommands[0] == 1) { //if command = FindModelByID
+		if(pCommands[0] == CMD_FIND_MODEL_BY_CHECKSUM) { //if command = FindModelByID
 			const int req_id = pCommands[3];
 			vector<Model *> matching;
 
@@ -245,9 +245,9 @@ void ExecuteCommands()
 				}
 			}
 			LeaveCriticalSection(&csCurrentModels);
-		} else if(pCommands[0] == 2){ //set overlay
+		} else if(pCommands[0] == CMD_SET_OVERLAY){ //set overlay
 			draw_overlay = (pCommands[3] == 1? true : false) ;
-		} else if(pCommands[0] == 3){ // get viewport
+		} else if(pCommands[0] == CMD_GET_VIEWPORT){ // get viewport
 			int Viewport[4];
 			orig_glGetIntegerv(GL_VIEWPORT, Viewport);
 			pCommands[3] = Viewport[0];
@@ -255,16 +255,16 @@ void ExecuteCommands()
 			pCommands[5] = Viewport[2];
 			pCommands[6] = Viewport[3];
 			pCommands[1] = 2;
-		} else if(pCommands[0] == 4){ //get GL Position
+		} else if(pCommands[0] == CMD_GET_GL_POSITION){ //get GL Position
 			double x, y ,z;
 			MouseCoordinateToGLPos(pCommands[3], pCommands[4],x,y,z,resizeableClient);
 			pCommands[3] = x;
 			pCommands[4] = y;
 			pCommands[5] = z;
 			pCommands[1] = 2;
-		} else if(pCommands[0] == 5){ //using ResizeableClient?
+		} else if(pCommands[0] == CMD_SET_RESIZEABLE){ //using ResizeableClient?
 			resizeableClient = (pCommands[3] == 1? true : false) ;
-		} else if(pCommands[0] == 6){ //FindModelByTriangle
+		} else if(pCommands[0] == CMD_FIND_MODEL_BY_TRIANGLE_COUNT){ //FindModelByTriangle
 			const int req_triangles = pCommands[3];
 			vector<Model *> matching;
 
