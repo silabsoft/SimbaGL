@@ -466,18 +466,25 @@ void sys_glEnd (void)
 	/* Aftermath: call it an item in inventory if it has 4 coords and texcoordsum is btw. 135-137. */
 	if(currentRectangleTexture) {
 		if(currentPossibleItem->coord_count == 4 && currentPossibleItem->texCoordSum < 137
-			&& currentPossibleItem->texCoordSum > 135) {
+			&& currentPossibleItem->texCoordSum > 135 ) {
 			EnterCriticalSection(&csNewInventoryItems);
 			int tid = currentPossibleItem->texture_id;
 			int screen_tl_x = currentPossibleItem->screenCoordsX[0];
 			int screen_tl_y = currentPossibleItem->screenCoordsY[0];
+
 			int checksum = currentPossibleItem->checksum;
-			InventoryItem *item = new InventoryItem;
-			item->texture_id = tid;
-			item->screen_tl_x = screen_tl_x;
-			item->screen_tl_y = screen_tl_y;
-			item->checksum = checksum;
-			newInventoryItems->push_back(item);
+			//Also want to point out I do not currently have a membership to test if this is different in fullscreen mode.
+			if(screen_tl_x > 510 && screen_tl_y > 135 || screen_tl_x < 510){ //Silab: without this you will be pulling two of the minimap icons.
+				/*
+				Silab: I would like to come back to this in the future clicking of icons could be useful and I do not wan't to ignore this bug.
+				*/
+				InventoryItem *item = new InventoryItem;
+				item->texture_id = tid;
+				item->screen_tl_x = screen_tl_x;
+				item->screen_tl_y = screen_tl_y;
+				item->checksum = checksum;
+				newInventoryItems->push_back(item);
+			}
 
 			/*char *strid = new char[10];
 			char *strtlx = new char[10];
